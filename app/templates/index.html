@@ -275,6 +275,8 @@
         <td>{{ _('{n} мс').format(n=n.last_latency_ms) if n.last_latency_ms else '—' }}</td>
         <td>
           {% if not n.enabled %}<span class="muted">{{ _('выключена') }}</span>
+          {% elif not n.last_check_at %}<span class="muted" title="{{ _('Новая нода, проверки еще не было. До первой проверки отдается как живая') }}">{{ _('не проверялась') }}</span>
+          {% elif n.alive and n.fail_streak %}<span class="warn" title="{{ _('Последние проверки провалились, но нода еще отдается: мертвой станет после {n} провалов подряд').format(n=settings.dead_after_fails) }}">{{ _('сбоит, {k} из {n}').format(k=n.fail_streak, n=settings.dead_after_fails) }}</span>
           {% elif n.alive %}<span class="ok">{{ _('жива') }}</span>
           {% else %}<span class="bad">{{ _('мертва') }}</span>{% endif %}
           {% if n.pinned_alive %}<span class="pill" title="{{ _('Отдается всегда, даже если проверка говорит, что мертва') }}">{{ _('всегда') }}</span>{% endif %}

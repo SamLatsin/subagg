@@ -285,7 +285,10 @@ async def run_check(session: AsyncSession, node_ids: list[int] | None = None) ->
             node.alive = True
         else:
             node.fail_streak += 1
-            if node.fail_streak >= settings.dead_after_fails:
+            # Отсрочка в dead_after_fails прогонов нужна, чтобы разовый сбой
+            # не выкинул рабочую ноду. Новой ноде, которая еще ни разу не
+            # проверялась, верить не в чем: мертва с первого провала
+            if node.last_check_at is None or node.fail_streak >= settings.dead_after_fails:
                 node.alive = False
         node.last_check_at = now
 

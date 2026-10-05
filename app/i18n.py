@@ -161,6 +161,12 @@ EN: dict[str, str] = {
     "{n} мс": "{n} ms",
     "выключена": "disabled",
     "жива": "alive",
+    "не проверялась": "not checked yet",
+    "Новая нода, проверки еще не было. До первой проверки отдается как живая":
+        "New node, not checked yet. Served as alive until the first check",
+    "сбоит, {k} из {n}": "flapping, {k} of {n}",
+    "Последние проверки провалились, но нода еще отдается: мертвой станет после {n} провалов подряд":
+        "Recent checks failed but the node is still served: it is marked dead after {n} failures in a row",
     "мертва": "dead",
     "Отдается всегда, даже если проверка говорит, что мертва": "Always served, even if the check says it is dead",
     "всегда": "always",

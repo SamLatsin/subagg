@@ -7,11 +7,11 @@
 <style>
   :root {
     --bg: #f6f7f9; --panel: #fff; --line: #dfe3e8; --text: #1c2024;
-    --muted: #6b7280; --ok: #1a7f37; --bad: #b42318; --accent: #2563eb;
+    --muted: #6b7280; --ok: #1a7f37; --warn: #9a6700; --bad: #b42318; --accent: #2563eb;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#14171a; --panel:#1c2024; --line:#2c3238; --text:#e6e8ea;
-            --muted:#9099a3; --ok:#3fb950; --bad:#f85149; --accent:#539bf5; }
+            --muted:#9099a3; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#539bf5; }
   }
   * { box-sizing: border-box; }
   body { margin:0; padding:16px; background:var(--bg); color:var(--text);
@@ -29,7 +29,7 @@
   tr:last-child td { border-bottom:none; }
   code, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
   .muted { color:var(--muted); }
-  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
   .pill { display:inline-block; padding:1px 6px; border:1px solid var(--line);
           border-radius:20px; font-size:11px; margin-right:3px; }
   form.inline { display:inline; }
