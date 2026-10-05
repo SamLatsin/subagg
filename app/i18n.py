@@ -181,6 +181,11 @@ EN: dict[str, str] = {
         "Always serve the node, even if the check says it is dead. Useful for whitelist nodes "
         "that cannot be checked from here",
     "Всегда отдавать": "Always serve",
+    "Пинг": "Ping",
+    "Проверяю…": "Checking…",
+    "Проверить только эту ноду прямо сейчас: задержка и какие цели не прошли. Несколько секунд":
+        "Check just this node right now: latency and which targets fail. Takes a few seconds",
+    "Идет другая проверка, попробуй через минуту": "Another check is running, try again in a minute",
     "Удалить свою ноду «{name}»?": "Delete own node “{name}”?",
     "Удалить свою ноду насовсем": "Delete this own node for good",
 

@@ -18,6 +18,10 @@ from .models import utcnow
 
 log = logging.getLogger(__name__)
 
+# Ядро проверки одно и слушает один порт API: полная проверка и пинг одной
+# ноды из админки не должны идти одновременно
+MIHOMO_LOCK = asyncio.Lock()
+
 
 class Job:
     def __init__(self, name: str, title: str, fn: Callable[[], Awaitable[object]]) -> None:
@@ -79,7 +83,7 @@ async def _fetch() -> object:
 
 
 async def _check() -> object:
-    async with SessionLocal() as session:
+    async with MIHOMO_LOCK, SessionLocal() as session:
         return await run_check(session)
 
 

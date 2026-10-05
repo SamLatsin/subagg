@@ -24,7 +24,8 @@ from .db import SessionLocal, get_session, init_db
 from .fetcher import add_own_nodes, expire_date, sync_subscription
 from .i18n import DEFAULT_LANG, LANGS, current_lang
 from .i18n import gettext as tr
-from .jobs import CHECK, FETCH, JOBS
+from .checker import run_check
+from .jobs import CHECK, FETCH, JOBS, MIHOMO_LOCK
 from .models import CheckResult, CheckTarget, Node, Subscription, Token, utcnow
 from .parsers import parse_subscription_body, parse_uri
 from .render import explain_nodes, render_base64, render_clash, render_uri_list, select_nodes
@@ -183,11 +184,7 @@ async def index(
     targets = (await session.execute(select(CheckTarget).order_by(CheckTarget.id))).scalars().all()
     tokens = (await session.execute(select(Token).order_by(Token.id))).scalars().all()
 
-    fails: dict[int, list[str]] = {}
-    rows = (await session.execute(select(CheckResult).where(CheckResult.ok.is_(False)))).scalars().all()
-    tnames = {t.id: t.name for t in targets}
-    for r in rows:
-        fails.setdefault(r.node_id, []).append(tnames.get(r.target_id, "?"))
+    fails = await _failed_targets(session)
 
     stats = {
         "nodes": len(nodes),
@@ -213,6 +210,17 @@ async def index(
             "jobs": [j.status() for j in JOBS],
         },
     )
+
+
+async def _failed_targets(session: AsyncSession, node_id: int | None = None) -> dict[int, list[str]]:
+    """Какие цели не прошла нода на последней проверке: {node_id: [имя цели]}."""
+    q = select(CheckResult.node_id, CheckTarget.name).join(CheckTarget).where(CheckResult.ok.is_(False))
+    if node_id is not None:
+        q = q.where(CheckResult.node_id == node_id)
+    fails: dict[int, list[str]] = {}
+    for nid, name in (await session.execute(q)).all():
+        fails.setdefault(nid, []).append(name)
+    return fails
 
 
 def _base_url(request: Request) -> str:
@@ -366,6 +374,34 @@ async def add_own(
     added = await add_own_nodes(session, proxies, tags)
     log.info("добавлено своих нод: %d (всего разобрано %d)", added, len(proxies))
     return _back()
+
+
+@app.post("/nodes/{node_id}/check")
+async def check_node(
+    node_id: int,
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Пинг одной ноды из админки. Отвечает, когда проверка закончилась."""
+    node = await session.get(Node, node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail=tr("нет такой ноды"))
+    if MIHOMO_LOCK.locked():
+        raise HTTPException(status_code=409, detail=tr("Идет другая проверка, попробуй через минуту"))
+    async with MIHOMO_LOCK:
+        summary = await run_check(session, [node_id])
+    if summary.get("error"):
+        raise HTTPException(status_code=502, detail=tr(summary["error"]))
+
+    await session.refresh(node)
+    fails = await _failed_targets(session, node_id)
+    latency = node.last_latency_ms
+    return {
+        "latency": tr("{n} мс").format(n=latency) if latency else "—",
+        "status_html": TEMPLATES.get_template("_node_status.html").render(
+            n=node, fails=fails, settings=settings
+        ),
+    }
 
 
 @app.post("/nodes/{node_id}/toggle")

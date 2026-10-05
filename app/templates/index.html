@@ -265,26 +265,22 @@
       <tr><th>{{ _('Имя') }}</th><th>{{ _('Теги') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th>
           <th>{{ _('Статус') }}</th><th></th></tr>
       {% for n in nodes %}
-      <tr class="{{ '' if n.enabled else 'off' }}">
+      <tr class="{{ '' if n.enabled else 'off' }}" id="node-{{ n.id }}">
         <td>
           {{ n.display_name }}
           <div class="muted" style="font-size:11px">{{ n.original_name }}</div>
         </td>
         <td>{% for t in n.tags %}<span class="pill">{{ t }}</span>{% endfor %}</td>
         <td class="hide-sm mono muted">{{ n.proto }} {{ n.server }}:{{ n.port }}</td>
-        <td>{{ _('{n} мс').format(n=n.last_latency_ms) if n.last_latency_ms else '—' }}</td>
-        <td>
-          {% if not n.enabled %}<span class="muted">{{ _('выключена') }}</span>
-          {% elif not n.last_check_at %}<span class="muted" title="{{ _('Новая нода, проверки еще не было. До первой проверки отдается как живая') }}">{{ _('не проверялась') }}</span>
-          {% elif n.alive and n.fail_streak %}<span class="warn" title="{{ _('Последние проверки провалились, но нода еще отдается: мертвой станет после {n} провалов подряд').format(n=settings.dead_after_fails) }}">{{ _('сбоит, {k} из {n}').format(k=n.fail_streak, n=settings.dead_after_fails) }}</span>
-          {% elif n.alive %}<span class="ok">{{ _('жива') }}</span>
-          {% else %}<span class="bad">{{ _('мертва') }}</span>{% endif %}
-          {% if n.pinned_alive %}<span class="pill" title="{{ _('Отдается всегда, даже если проверка говорит, что мертва') }}">{{ _('всегда') }}</span>{% endif %}
-          {% if fails.get(n.id) %}
-            <div class="muted" style="font-size:11px">{{ _('не прошла:') }} {{ fails[n.id]|join(', ') }}</div>
-          {% endif %}
+        <td class="node-latency">{{ _('{n} мс').format(n=n.last_latency_ms) if n.last_latency_ms else '—' }}</td>
+        <td class="node-status">
+          {% include "_node_status.html" %}
         </td>
         <td class="row">
+          {% if n.enabled %}
+          <button type="button" class="sm" onclick="pingNode({{ n.id }}, this)"
+                  title="{{ _('Проверить только эту ноду прямо сейчас: задержка и какие цели не прошли. Несколько секунд') }}">⚡ {{ _('Пинг') }}</button>
+          {% endif %}
           <form class="inline" method="post" action="/nodes/{{ n.id }}/toggle">
             {% if n.enabled %}
             <button class="sm" title="{{ _('Убрать ноду из выдачи всех токенов и не проверять ее') }}">⏸ {{ _('Выключить') }}</button>
@@ -315,6 +311,28 @@
 
 {% block scripts %}
 <script>
+// Пинг одной ноды: ждем ответа и подменяем задержку и статус в строке
+async function pingNode(id, btn) {
+  const row = document.getElementById("node-" + id);
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = {{ _('Проверяю…')|tojson }};
+  try {
+    const r = await fetch("/nodes/" + id + "/check", {method: "POST", credentials: "same-origin"});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.status);
+    row.querySelector(".node-latency").textContent = data.latency;
+    row.querySelector(".node-status").innerHTML = data.status_html;
+  } catch (e) {
+    row.querySelector(".node-status").insertAdjacentHTML("beforeend",
+      '<div class="bad" style="font-size:11px"></div>');
+    row.querySelector(".node-status div.bad:last-child").textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
 function toggleEdit(id) {
   const row = document.getElementById(id);
   row.hidden = !row.hidden;
