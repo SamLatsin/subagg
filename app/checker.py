@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .models import CheckResult, CheckTarget, Node, utcnow
+from .parsers import public_config
 
 log = logging.getLogger(__name__)
 
@@ -259,8 +260,7 @@ async def run_check(session: AsyncSession, node_ids: list[int] | None = None,
     by_key = {f"n{n.id}": n for n in nodes}
     proxies = []
     for key, n in by_key.items():
-        cfg = dict(n.config or {})
-        cfg.pop("_warn", None)
+        cfg = public_config(n.config or {})
         cfg["name"] = key
         proxies.append(cfg)
 

@@ -392,10 +392,15 @@ def parse_uri(uri: str) -> dict | None:
     if not fn:
         return None
     try:
-        return fn(uri)
+        node = fn(uri)
     except Exception as exc:  # noqa: BLE001 - одна битая ссылка не должна ронять подписку
         log.warning("не разобрана ссылка %s...: %s", uri[:24], exc)
         return None
+    if node:
+        # Исходник отдаем клиентам в base64 как есть: наша обратная сборка
+        # из proxy-объекта теряет то, что mihomo не описывает (xhttp, pqv, ...)
+        node["_uri"] = uri
+    return node
 
 
 # --------------------------------------------------------------------------- #
@@ -455,6 +460,11 @@ def _parse_uri_lines(text: str) -> list[dict]:
         if node:
             out.append(node)
     return out
+
+
+def public_config(node: dict) -> dict:
+    """Конфиг ноды без наших служебных ключей (_uri, _warn)."""
+    return {k: v for k, v in node.items() if not str(k).startswith("_")}
 
 
 def is_junk(node: dict) -> bool:

@@ -65,6 +65,21 @@ def _tls_params(node: dict) -> dict[str, str]:
     return p
 
 
+def rename_uri(uri: str, name: str) -> str | None:
+    """Ссылка провайдера с нашим именем. У vmess имя внутри base64-JSON."""
+    if uri.lower().startswith("vmess://"):
+        body = uri[len("vmess://"):].split("#", 1)[0]
+        try:
+            cfg = json.loads(base64.b64decode(body + "=" * (-len(body) % 4)).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            cfg = None
+        if isinstance(cfg, dict):
+            cfg["ps"] = name
+            raw = json.dumps(cfg, ensure_ascii=False, separators=(",", ":")).encode()
+            return "vmess://" + base64.b64encode(raw).decode()
+    return uri.split("#", 1)[0] + "#" + quote(name, safe="")
+
+
 def node_to_uri(node: dict) -> str | None:
     t = (node.get("type") or "").lower()
     name = str(node.get("name", ""))
@@ -78,7 +93,7 @@ def node_to_uri(node: dict) -> str | None:
         params = {**_tls_params(node), **_transport_params(node)}
         if node.get("flow"):
             params["flow"] = node["flow"]
-        params.setdefault("encryption", "none")
+        params["encryption"] = node.get("encryption") or "none"
         return f"vless://{node.get('uuid','')}@{server}:{port}?{urlencode(params)}#{frag}"
 
     if t == "vmess":
