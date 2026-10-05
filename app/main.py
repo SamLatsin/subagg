@@ -6,6 +6,7 @@ import re
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -40,6 +41,8 @@ TEMPLATES = Jinja2Templates(
     context_processors=[lambda request: {"lang": current_lang.get()}],
 )
 TEMPLATES.env.globals["_"] = tr
+# В админке у подписок показываем только домен: в пути и query лежат ключи
+TEMPLATES.env.filters["host"] = lambda url: urlparse(url).hostname or "?"
 
 DEFAULT_TARGETS = [
     # required: если эта цель не прошла, нода считается мертвой

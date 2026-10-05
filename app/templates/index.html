@@ -48,7 +48,7 @@
           <b>{{ s.name }}</b>
           {% if not s.enabled %}<span class="pill">{{ _('выкл') }}</span>{% endif %}
           {% for t in s.force_tags %}<span class="pill" title="{{ _('Принудительный тег: ставится всем нодам подписки') }}">{{ t }}</span>{% endfor %}
-          <div class="muted mono" style="word-break:break-all">{{ s.url[:60] }}…</div>
+          <div class="muted mono">{{ s.url|host }}</div>
         </td>
         <td>{{ s.last_node_count }}</td>
         <td class="hide-sm mono muted">
