@@ -9,6 +9,8 @@ import base64
 import json
 from urllib.parse import quote, urlencode
 
+from .parsers import _XHTTP_EXTRA, _XMUX
+
 
 def _transport_params(node: dict) -> dict[str, str]:
     p: dict[str, str] = {}
@@ -31,6 +33,20 @@ def _transport_params(node: dict) -> dict[str, str]:
             p["path"] = h["path"]
         if h.get("host"):
             p["host"] = ",".join(h["host"]) if isinstance(h["host"], list) else str(h["host"])
+    elif net == "xhttp":
+        x = node.get("xhttp-opts") or {}
+        p["path"] = x.get("path") or "/"
+        if x.get("host"):
+            p["host"] = x["host"]
+        if x.get("mode"):
+            p["mode"] = x["mode"]
+        extra = {src: x[dst] for src, dst in _XHTTP_EXTRA.items() if dst in x}
+        reuse = x.get("reuse-settings") or {}
+        xmux = {src: reuse[dst] for src, dst in _XMUX.items() if dst in reuse}
+        if xmux:
+            extra["xmux"] = xmux
+        if extra:
+            p["extra"] = json.dumps(extra, separators=(",", ":"))
     elif net == "http":
         h = node.get("http-opts") or {}
         paths = h.get("path") or []
@@ -94,6 +110,8 @@ def node_to_uri(node: dict) -> str | None:
         if node.get("flow"):
             params["flow"] = node["flow"]
         params["encryption"] = node.get("encryption") or "none"
+        if node.get("packet-encoding"):
+            params["packetEncoding"] = node["packet-encoding"]
         return f"vless://{node.get('uuid','')}@{server}:{port}?{urlencode(params)}#{frag}"
 
     if t == "vmess":

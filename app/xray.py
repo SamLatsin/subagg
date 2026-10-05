@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 
+from .parsers import xhttp_opts
+
 
 def _stream_to_clash(out: dict, stream: dict) -> None:
     net = (stream.get("network") or "tcp").lower()
@@ -54,10 +56,10 @@ def _stream_to_clash(out: dict, stream: dict) -> None:
         g = stream.get("grpcSettings") or {}
         out["grpc-opts"] = {"grpc-service-name": g.get("serviceName", "")}
     elif net in ("xhttp", "splithttp"):
-        out["network"] = "http"
-        out["_warn"] = "xhttp-transport"
+        out["network"] = "xhttp"
         x = stream.get("xhttpSettings") or stream.get("splithttpSettings") or {}
-        out["http-opts"] = {"path": [x.get("path", "/")]}
+        out["xhttp-opts"] = xhttp_opts(x.get("path", "/"), x.get("host", ""), x.get("mode", ""),
+                                       {**(x.get("extra") or {}), **x})
     else:
         out["network"] = "tcp"
 
@@ -83,6 +85,10 @@ def outbound_to_clash(ob: dict, name: str | None = None) -> dict | None:
         }
         if user.get("flow"):
             out["flow"] = user["flow"]
+        if user.get("encryption") and user["encryption"] != "none":
+            out["encryption"] = user["encryption"]
+        if settings.get("packetEncoding") in ("xudp", "packetaddr"):
+            out["packet-encoding"] = settings["packetEncoding"]
         _stream_to_clash(out, stream)
         return out
 

@@ -55,6 +55,63 @@ def _truthy(v: str) -> bool:
 # --------------------------------------------------------------------------- #
 
 
+XHTTP_MODES = {"auto", "packet-up", "stream-up", "stream-one"}
+
+# xray extra (camelCase) -> xhttp-opts mihomo
+_XHTTP_EXTRA = {
+    "headers": "headers",
+    "noGRPCHeader": "no-grpc-header",
+    "noSSEHeader": "no-sse-header",
+    "xPaddingBytes": "x-padding-bytes",
+    "scMaxEachPostBytes": "sc-max-each-post-bytes",
+    "scMinPostsIntervalMs": "sc-min-posts-interval-ms",
+    "scMaxBufferedPosts": "sc-max-buffered-posts",
+}
+_XMUX = {
+    "maxConcurrency": "max-concurrency",
+    "maxConnections": "max-connections",
+    "cMaxReuseTimes": "c-max-reuse-times",
+    "hMaxRequestTimes": "h-max-request-times",
+    "hMaxReusableSecs": "h-max-reusable-secs",
+    "hKeepAlivePeriod": "h-keep-alive-period",
+}
+
+
+def _range(v):
+    # xray пишет диапазоны и строкой "100-1000", и объектом {"from":..,"to":..}
+    if isinstance(v, dict) and "from" in v:
+        return f"{v['from']}-{v.get('to', v['from'])}"
+    return v
+
+
+def xhttp_opts(path: str, host: str = "", mode: str = "", extra: dict | None = None) -> dict:
+    """Опции xhttp для mihomo из того, что дают ссылка или xray-конфиг.
+
+    Без этого xhttp-ноды уезжали в старый network: http, теряли mode и
+    xmux, и сервер под stream-one/packet-up отвечал таймаутами.
+    """
+    opts: dict = {"path": path or "/"}
+    if host:
+        opts["host"] = host
+    extra = extra or {}
+    mode = (mode or extra.get("mode") or "").lower()
+    # Неизвестный mode ядро не принимает вовсе, лучше оставить auto
+    if mode in XHTTP_MODES:
+        opts["mode"] = mode
+    for src, dst in _XHTTP_EXTRA.items():
+        if extra.get(src) not in (None, "", {}):
+            opts[dst] = _range(extra[src])
+    xmux = extra.get("xmux") or {}
+    reuse = {dst: _range(xmux[src]) for src, dst in _XMUX.items() if xmux.get(src) not in (None, "")}
+    if reuse:
+        opts["reuse-settings"] = reuse
+    if extra.get("downloadSettings"):
+        # Отдельный канал на скачивание описывается в mihomo иначе, не переносим.
+        # Base64-выдача отдает исходную ссылку, там он сохранится
+        log.info("xhttp downloadSettings не переносится в clash-конфиг")
+    return opts
+
+
 def _apply_transport(out: dict, net: str, q: dict[str, list[str]]) -> None:
     """Общая для vless/vmess/trojan часть: network + его опции."""
     net = (net or "tcp").lower()
@@ -88,10 +145,20 @@ def _apply_transport(out: dict, net: str, q: dict[str, list[str]]) -> None:
             http["headers"] = {"Host": host.split(",")}
         out["http-opts"] = http
     elif net in ("xhttp", "splithttp"):
-        # mihomo ест это не во всех сборках, помечаем и отдаем как есть
+        out["network"] = "xhttp"
+        try:
+            extra = json.loads(unquote(_qs_first(q, "extra", default="{}")))
+        except ValueError:
+            extra = {}
+        out["xhttp-opts"] = xhttp_opts(path, host, _qs_first(q, "mode"),
+                                       extra if isinstance(extra, dict) else {})
+    elif net == "tcp" and _qs_first(q, "headerType").lower() == "http":
+        # tcp с http-маскировкой - в mihomo это network: http
         out["network"] = "http"
-        out["_warn"] = "xhttp-transport"
-        out["http-opts"] = {"path": [path]}
+        http = {"method": "GET", "path": [path]}
+        if host:
+            http["headers"] = {"Host": host.split(",")}
+        out["http-opts"] = http
     # tcp - ничего дополнительного
 
 
@@ -150,6 +217,9 @@ def parse_vless(uri: str) -> dict | None:
     enc = _qs_first(q, "encryption")
     if enc and enc != "none":
         out["encryption"] = enc
+    pe = _qs_first(q, "packetEncoding", "packet-encoding")
+    if pe in ("xudp", "packetaddr"):
+        out["packet-encoding"] = pe
     _apply_tls(out, q, default_sni=u.hostname)
     _apply_transport(out, _qs_first(q, "type", default="tcp"), q)
     return out
@@ -487,12 +557,14 @@ def _routing_key(node: dict) -> str:
     ws = node.get("ws-opts") or {}
     h2 = node.get("h2-opts") or {}
     http = node.get("http-opts") or {}
+    xh = node.get("xhttp-opts") or {}
     parts = {
         "net": node.get("network") or "",
         "sni": node.get("servername") or node.get("sni") or "",
         "sid": (node.get("reality-opts") or {}).get("short-id") or "",
-        "path": ws.get("path") or h2.get("path") or http.get("path") or "",
-        "host": (ws.get("headers") or {}).get("Host") or h2.get("host") or (http.get("headers") or {}).get("Host") or "",
+        "path": ws.get("path") or h2.get("path") or http.get("path") or xh.get("path") or "",
+        "host": (ws.get("headers") or {}).get("Host") or h2.get("host")
+                or (http.get("headers") or {}).get("Host") or xh.get("host") or "",
         "grpc": (node.get("grpc-opts") or {}).get("grpc-service-name") or "",
     }
     if not any(parts.values()):
