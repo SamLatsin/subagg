@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>subagg</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --line: #dfe3e8; --text: #1c2024;
+    --muted: #6b7280; --ok: #1a7f37; --bad: #b42318; --accent: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171a; --panel:#1c2024; --line:#2c3238; --text:#e6e8ea;
+            --muted:#9099a3; --ok:#3fb950; --bad:#f85149; --accent:#539bf5; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--text);
+         font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:0 0 10px; font-weight:600; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+          padding:14px; margin-bottom:14px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line);
+           vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase;
+       letter-spacing:.03em; }
+  tr:last-child td { border-bottom:none; }
+  code, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+  .muted { color:var(--muted); }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .pill { display:inline-block; padding:1px 6px; border:1px solid var(--line);
+          border-radius:20px; font-size:11px; margin-right:3px; }
+  form.inline { display:inline; }
+  button { font:inherit; padding:4px 10px; border:1px solid var(--line);
+           background:var(--bg); color:var(--text); border-radius:6px; cursor:pointer; }
+  button:hover { border-color:var(--accent); color:var(--accent); }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  input, select, textarea { font:inherit; padding:6px 8px; border:1px solid var(--line);
+           border-radius:6px; background:var(--bg); color:var(--text); width:100%; }
+  textarea { min-height:90px; font-family:ui-monospace,monospace; font-size:12px; }
+  .grid { display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .stats { display:flex; gap:18px; flex-wrap:wrap; margin-bottom:12px; }
+  .stat b { display:block; font-size:22px; font-weight:600; }
+  .stat span { color:var(--muted); font-size:12px; }
+  label.chk { display:flex; align-items:center; gap:6px; }
+  label.chk input { width:auto; }
+  .scroll { max-height:520px; overflow:auto; }
+  details summary { cursor:pointer; color:var(--muted); }
+  @media (max-width:640px) { body { padding:10px; } .hide-sm { display:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>subagg</h1>
+  <p class="muted" style="margin-top:0">
+    Агрегатор подписок. Обновление каждые {{ settings.fetch_interval_min }} мин,
+    проверка нод каждые {{ settings.check_interval_min }} мин.
+  </p>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><b>{{ stats.nodes }}</b><span>нод всего</span></div>
+      <div class="stat"><b class="ok">{{ stats.alive }}</b><span>живых</span></div>
+      <div class="stat"><b>{{ stats.ru }}</b><span>RU</span></div>
+      <div class="stat"><b>{{ stats.tor }}</b><span>торрент</span></div>
+      <div class="stat"><b>{{ stats.own }}</b><span>своих</span></div>
+    </div>
+    <div class="row">
+      <form class="inline" method="post" action="/actions/refresh">
+        <button class="primary">Обновить подписки</button>
+      </form>
+      <form class="inline" method="post" action="/actions/check">
+        <button>Проверить ноды</button>
+      </form>
+      <span class="muted">проверка занимает до пары минут</span>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <div class="card">
+    <h2>Подписки</h2>
+    <table>
+      <tr>
+        <th>Имя</th><th>Нод</th><th class="hide-sm">UA / заголовки</th>
+        <th>Обновлена</th><th>Статус</th><th></th>
+      </tr>
+      {% for s in subs %}
+      <tr>
+        <td>
+          <b>{{ s.name }}</b>
+          {% if not s.enabled %}<span class="pill">выкл</span>{% endif %}
+          {% for t in s.force_tags %}<span class="pill">{{ t }}</span>{% endfor %}
+          <div class="muted mono" style="word-break:break-all">{{ s.url[:60] }}…</div>
+        </td>
+        <td>{{ s.last_node_count }}</td>
+        <td class="hide-sm mono muted">
+          {{ s.user_agent }}
+          {% if s.headers %}<br>{{ s.headers.keys()|join(', ') }}{% endif %}
+        </td>
+        <td class="muted">
+          {{ s.last_ok_at.strftime('%d.%m %H:%M') if s.last_ok_at else '—' }}
+          {% if s.info_expire %}
+            <br><span class="muted">до {{ expire_date(s.info_expire).strftime('%d.%m.%Y') }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s.last_error %}<span class="bad">{{ s.last_error[:70] }}</span>
+          {% else %}<span class="ok">ок</span>{% endif %}
+        </td>
+        <td class="row">
+          <form class="inline" method="post" action="/subs/{{ s.id }}/refresh"><button>↻</button></form>
+          <form class="inline" method="post" action="/subs/{{ s.id }}/toggle"><button>⏻</button></form>
+          <form class="inline" method="post" action="/subs/{{ s.id }}/delete"
+                onsubmit="return confirm('Удалить подписку {{ s.name }} и её ноды?')">
+            <button>✕</button></form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">Пока пусто</td></tr>
+      {% endfor %}
+    </table>
+
+    <details style="margin-top:12px">
+      <summary>Добавить подписку</summary>
+      <form method="post" action="/subs" style="margin-top:10px">
+        <div class="grid">
+          <label>Имя<input name="name" required placeholder="fastcon"></label>
+          <label>User-Agent<input name="user_agent" value="v2rayN/9.99"></label>
+          <label>Принудительные теги<input name="force_tags" placeholder="WL"></label>
+        </div>
+        <label style="display:block;margin-top:8px">URL
+          <input name="url" required placeholder="https://sub.example.com/xxxx"></label>
+        <label style="display:block;margin-top:8px">Заголовки, JSON
+          <textarea name="headers_json" placeholder='{"x-device-os":"OpenWrt","x-ver-os":"24.10.3","x-device-model":"Huasifei WH3000 Pro","x-hwid":"..."}'></textarea>
+        </label>
+        <button class="primary" style="margin-top:8px">Добавить</button>
+      </form>
+    </details>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <div class="card">
+    <h2>Свои ноды</h2>
+    <details>
+      <summary>Добавить: ссылки, clash YAML или xray outbound JSON</summary>
+      <form method="post" action="/own" style="margin-top:10px">
+        <textarea name="payload" required placeholder="vless://uuid@host:443?security=reality&...#Мой сервер
+или
+{&quot;protocol&quot;:&quot;vless&quot;,&quot;settings&quot;:{...},&quot;streamSettings&quot;:{...}}"></textarea>
+        <div class="row" style="margin-top:8px">
+          <label style="max-width:220px">Теги<input name="force_tags" placeholder="MY"></label>
+          <button class="primary">Добавить</button>
+        </div>
+      </form>
+    </details>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <div class="card">
+    <h2>Цели проверки</h2>
+    <table>
+      <tr><th>Имя</th><th>URL</th><th>Код</th><th>Обязательная</th><th></th></tr>
+      {% for t in targets %}
+      <tr>
+        <td>{{ t.name }}{% if not t.enabled %} <span class="pill">выкл</span>{% endif %}</td>
+        <td class="mono muted">{{ t.url }}</td>
+        <td>{{ t.expected_status }}</td>
+        <td>{{ 'да' if t.required else 'нет' }}</td>
+        <td class="row">
+          <form class="inline" method="post" action="/targets/{{ t.id }}/toggle"><button>⏻</button></form>
+          <form class="inline" method="post" action="/targets/{{ t.id }}/delete"><button>✕</button></form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    <details style="margin-top:12px">
+      <summary>Добавить цель</summary>
+      <form method="post" action="/targets" style="margin-top:10px">
+        <div class="grid">
+          <label>Имя<input name="name" required placeholder="home"></label>
+          <label>URL<input name="url" required placeholder="https://home.example.com/ping"></label>
+          <label>Ожидаемый код<input name="expected_status" type="number" value="204"></label>
+          <label class="chk" style="align-self:end">
+            <input type="checkbox" name="required" value="true"> обязательная</label>
+        </div>
+        <button class="primary" style="margin-top:8px">Добавить</button>
+      </form>
+    </details>
+    <p class="muted" style="margin-bottom:0">
+      Нода считается живой, если прошли все обязательные цели и хотя бы одна любая.
+      Мертвой становится после {{ settings.dead_after_fails }} неудачных прогонов подряд.
+    </p>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <div class="card">
+    <h2>Токены выдачи</h2>
+    <table>
+      <tr><th>Имя</th><th>Ссылка</th><th>Формат</th><th class="hide-sm">Фильтры</th>
+          <th>Использован</th><th></th></tr>
+      {% for t in tokens %}
+      <tr>
+        <td>{{ t.name }}</td>
+        <td class="mono" style="word-break:break-all">{{ base_url }}/sub/{{ t.token }}</td>
+        <td>{{ t.fmt }}{% if t.only_alive %}<br><span class="pill">только живые</span>{% endif %}</td>
+        <td class="hide-sm mono muted">
+          {% if t.include_regex %}+{{ t.include_regex }}<br>{% endif %}
+          {% if t.exclude_regex %}−{{ t.exclude_regex }}{% endif %}
+        </td>
+        <td class="muted">
+          {{ t.last_used_at.strftime('%d.%m %H:%M') if t.last_used_at else '—' }}
+          <br>{{ t.use_count }} раз
+        </td>
+        <td>
+          <form class="inline" method="post" action="/tokens/{{ t.id }}/delete"
+                onsubmit="return confirm('Удалить токен {{ t.name }}?')"><button>✕</button></form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">Токенов нет, устройства ничего не получат</td></tr>
+      {% endfor %}
+    </table>
+    <details style="margin-top:12px">
+      <summary>Создать токен</summary>
+      <form method="post" action="/tokens" style="margin-top:10px">
+        <div class="grid">
+          <label>Имя<input name="name" required placeholder="router-fudy"></label>
+          <label>Формат
+            <select name="fmt">
+              <option value="clash">clash YAML</option>
+              <option value="base64">base64</option>
+              <option value="uri">список ссылок</option>
+            </select></label>
+          <label>Include regex<input name="include_regex" placeholder="^\[RU\]"></label>
+          <label>Exclude regex<input name="exclude_regex" placeholder="\[GAME\]"></label>
+          <label class="chk" style="align-self:end">
+            <input type="checkbox" name="only_alive" value="true" checked> только живые</label>
+        </div>
+        <button class="primary" style="margin-top:8px">Создать</button>
+      </form>
+    </details>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <div class="card">
+    <h2>Ноды ({{ stats.nodes }})</h2>
+    <div class="scroll">
+    <table>
+      <tr><th>Имя</th><th>Теги</th><th class="hide-sm">Сервер</th><th>Задержка</th>
+          <th>Статус</th><th></th></tr>
+      {% for n in nodes %}
+      <tr>
+        <td>
+          {{ n.display_name }}
+          <div class="muted" style="font-size:11px">{{ n.original_name }}</div>
+        </td>
+        <td>{% for t in n.tags %}<span class="pill">{{ t }}</span>{% endfor %}</td>
+        <td class="hide-sm mono muted">{{ n.proto }} {{ n.server }}:{{ n.port }}</td>
+        <td>{{ n.last_latency_ms ~ ' мс' if n.last_latency_ms else '—' }}</td>
+        <td>
+          {% if not n.enabled %}<span class="muted">выключена</span>
+          {% elif n.alive %}<span class="ok">жива</span>
+          {% else %}<span class="bad">мертва</span>{% endif %}
+          {% if n.pinned_alive %}<span class="pill">всегда</span>{% endif %}
+          {% if fails.get(n.id) %}
+            <div class="muted" style="font-size:11px">не прошла: {{ fails[n.id]|join(', ') }}</div>
+          {% endif %}
+        </td>
+        <td class="row">
+          <form class="inline" method="post" action="/nodes/{{ n.id }}/toggle"><button>⏻</button></form>
+          <form class="inline" method="post" action="/nodes/{{ n.id }}/pin"><button>📌</button></form>
+          {% if n.source == 'own' %}
+          <form class="inline" method="post" action="/nodes/{{ n.id }}/delete"><button>✕</button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# окружение
+.venv/
+venv/
+.env
+
+# данные: база с UUID и ключами, рабочие файлы чекера
+data/
+*.sqlite3
+*.db
+
+# бинарь ядра, если качали вручную под MIHOMO_LOCAL=1
+mihomo
+
+# python
+__pycache__/
+*.pyc
+
+# редакторы и ОС
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,28 @@
+services:
+  subagg:
+    build:
+      context: .
+      args:
+        MIHOMO_VERSION: ${MIHOMO_VERSION:-v1.19.31}
+        TARGETARCH: ${TARGETARCH:-amd64}
+    image: subagg:latest
+    container_name: subagg
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "192.168.64.20:8080:8080"   # IP сервера в LAN, админка только изнутри
+    networks: [default, caddy_net]
+    volumes:
+      - ./data:/data
+    # Проверка нод поднимает mihomo внутри контейнера без TUN,
+    # дополнительных капабилити не требуется.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz').read()"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+networks:
+  default:
+  caddy_net:
+    external: true
