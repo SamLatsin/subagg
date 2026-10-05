@@ -28,6 +28,7 @@ from .checker import run_check
 from .jobs import CHECK, FETCH, JOBS, MIHOMO_LOCK
 from .models import CheckResult, CheckTarget, Node, Subscription, Token, utcnow
 from .normalize import flag_emoji
+from .publish import ensure_key, parse_target, public_key, publish_token
 from .parsers import parse_subscription_body, parse_uri
 from .render import explain_nodes, render_base64, render_clash, render_uri_list, select_nodes
 from .xray import parse_xray_json
@@ -75,6 +76,7 @@ async def seed_targets() -> None:
 async def lifespan(app: FastAPI):
     await init_db()
     await seed_targets()
+    await ensure_key()
     scheduler.add_job(FETCH.run, IntervalTrigger(minutes=settings.fetch_interval_min),
                       id="fetch", max_instances=1, coalesce=True)
     scheduler.add_job(CHECK.run, IntervalTrigger(minutes=settings.check_interval_min),
@@ -595,6 +597,7 @@ async def token_page(
             "rows": rows,
             "given": sum(1 for _, reason in rows if reason is None),
             "excluded": set(token.excluded_nodes or []),
+            "public_key": public_key(),
             "sources": {s.id: s.name for s in subs},
             "base_url": _base_url(request),
         },
@@ -646,6 +649,39 @@ async def update_token_nodes(
     excluded |= shown - checked
     token.excluded_nodes = sorted(excluded)
     await session.commit()
+    return _back(f"/tokens/{token_id}")
+
+
+@app.post("/tokens/{token_id}/push")
+async def set_push_target(
+    token_id: int,
+    push_target: str = Form(""),
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Куда выкладывать выдачу токена. Сразу пробуем выложить, чтобы ошибка
+    в адресе или доступе была видна на странице, а не через час."""
+    token = await _get_token(session, token_id)
+    target = push_target.strip() or None
+    if target and parse_target(target) is None:
+        raise HTTPException(status_code=400, detail=tr(
+            "адрес публикации: нужен вид user@host:/путь/файл или user@host:порт:/путь/файл"))
+    token.push_target = target
+    token.push_error = None
+    await session.commit()
+    if target:
+        await publish_token(session, token)
+    return _back(f"/tokens/{token_id}")
+
+
+@app.post("/tokens/{token_id}/publish")
+async def publish_now(
+    token_id: int,
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    token = await _get_token(session, token_id)
+    await publish_token(session, token)
     return _back(f"/tokens/{token_id}")
 
 

@@ -141,6 +141,12 @@ class Token(Base):
     # чтобы новые ноды из подписок попадали в выдачу без ручной правки
     excluded_nodes: Mapped[list] = mapped_column(JSON, default=list)
 
+    # Публикация статикой на внешний сервер по SSH: user@host[:port]:/path/file
+    push_target: Mapped[str | None] = mapped_column(Text)
+    push_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    push_error: Mapped[str | None] = mapped_column(Text)
+    push_nodes: Mapped[int | None] = mapped_column(Integer)
+
     last_used_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_ip: Mapped[str | None] = mapped_column(String(64))
     use_count: Mapped[int] = mapped_column(Integer, default=0)

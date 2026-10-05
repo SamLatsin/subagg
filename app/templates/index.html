@@ -200,6 +200,7 @@
         <td>
           <a href="/tokens/{{ t.id }}">{{ t.name }}</a>
           {% if not t.enabled %}<br><span class="pill">{{ _('приостановлен') }}</span>{% endif %}
+          {% if t.push_target %}<br><span class="pill {{ 'bad' if t.push_error }}" title="{{ _(t.push_error) if t.push_error else _('Публикуется на внешний сервер') }}">⇪ {{ t.push_target.split('@')[-1].split(':')[0] }}</span>{% endif %}
           {% if t.excluded_nodes %}<br><span class="pill" title="{{ _('Столько нод выключено вручную на странице токена') }}">{{ _('−{n} вручную').format(n=t.excluded_nodes|length) }}</span>{% endif %}
         </td>
         <td class="mono" style="word-break:break-all">

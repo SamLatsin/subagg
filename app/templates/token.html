@@ -33,6 +33,45 @@
   </div>
 
   <div class="card">
+    <h2>{{ _('Публикация на внешний сервер') }}</h2>
+    <p class="hint" style="margin:0 0 8px">{{ _('Для клиентов, которые не достают до дома, например роутера на симке с белым списком. Сервис сам кладет файл подписки по SSH на сервер, который им доступен, после каждого обновления подписок. Клиент берет его оттуда как обычную статику.') }}</p>
+    <form method="post" action="/tokens/{{ t.id }}/push">
+      <label style="display:block">{{ _('Публиковать на') }}
+        <input name="push_target" class="mono" value="{{ t.push_target or '' }}"
+               placeholder="sub@wl.example.com:/var/www/sub/{{ t.token }}.yaml"
+               title="{{ _('user@host:/путь/файл или user@host:порт:/путь/файл. Пусто - не публиковать') }}"></label>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" title="{{ _('Сохранить адрес и сразу попробовать выложить') }}">{{ _('Сохранить и опубликовать') }}</button>
+      </div>
+    </form>
+    {% if t.push_target %}
+    <div style="margin-top:10px">
+      {% if t.push_error %}
+        <span class="bad">✕ {{ _(t.push_error) }}</span>
+      {% elif t.push_at %}
+        <span class="ok">✓ {{ _('Выложено {when}, нод: {n}').format(when=t.push_at.strftime('%d.%m %H:%M'), n=t.push_nodes) }}</span>
+      {% else %}
+        <span class="muted">{{ _('Еще не публиковалось') }}</span>
+      {% endif %}
+      <form class="inline" method="post" action="/tokens/{{ t.id }}/publish" style="margin-left:8px">
+        <button class="sm" title="{{ _('Выложить текущую выдачу прямо сейчас, не дожидаясь обновления подписок') }}">⇪ {{ _('Опубликовать сейчас') }}</button></form>
+    </div>
+    {% endif %}
+    <details style="margin-top:10px">
+      <summary>{{ _('Как настроить сервер') }}</summary>
+      {% if public_key %}
+      <p class="hint">{{ _('1. Добавь этот ключ в ~/.ssh/authorized_keys пользователя на сервере. restrict запрещает с ним все, кроме выполнения команд:') }}</p>
+      <div class="mono" style="word-break:break-all">restrict {{ public_key }}</div>
+      <button type="button" class="sm" style="margin-top:4px" onclick='copyText({{ ("restrict " ~ public_key)|tojson }}, this)'>⧉ {{ _('Копировать') }}</button>
+      {% else %}
+      <p class="bad">{{ _('Нет ssh-ключа: в образе нет ssh-keygen. Пересобери образ.') }}</p>
+      {% endif %}
+      <p class="hint">{{ _('2. Раздай каталог с файлом веб-сервером по HTTPS. Имя файла сделай длинным и случайным: в нем все ключи нод.') }}</p>
+      <p class="hint">{{ _('3. В клиенте укажи ссылку на файл на этом сервере, например https://wl.example.com/sub/<имя>.yaml') }}</p>
+    </details>
+  </div>
+
+  <div class="card">
     <h2>{{ _('Настройки') }}</h2>
     <form method="post" action="/tokens/{{ t.id }}">
       <div class="grid">

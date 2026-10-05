@@ -182,6 +182,34 @@ EN: dict[str, str] = {
         "that cannot be checked from here",
     "Всегда отдавать": "Always serve",
     "Пинг": "Ping",
+    "Публикация на внешний сервер": "Publish to an external server",
+    "Для клиентов, которые не достают до дома, например роутера на симке с белым списком. Сервис сам кладет файл подписки по SSH на сервер, который им доступен, после каждого обновления подписок. Клиент берет его оттуда как обычную статику.":
+        "For clients that cannot reach home, e.g. a router on a whitelisted SIM. After every subscription refresh the service uploads the subscription file over SSH to a server they can reach. The client fetches it from there as a static file.",
+    "Публиковать на": "Publish to",
+    "user@host:/путь/файл или user@host:порт:/путь/файл. Пусто - не публиковать":
+        "user@host:/path/file or user@host:port:/path/file. Empty means do not publish",
+    "Сохранить адрес и сразу попробовать выложить": "Save the address and try to upload right away",
+    "Сохранить и опубликовать": "Save and publish",
+    "Выложено {when}, нод: {n}": "Uploaded {when}, nodes: {n}",
+    "Еще не публиковалось": "Not published yet",
+    "Выложить текущую выдачу прямо сейчас, не дожидаясь обновления подписок":
+        "Upload the current output right now without waiting for the subscription refresh",
+    "Опубликовать сейчас": "Publish now",
+    "Как настроить сервер": "How to set up the server",
+    "1. Добавь этот ключ в ~/.ssh/authorized_keys пользователя на сервере. restrict запрещает с ним все, кроме выполнения команд:":
+        "1. Add this key to ~/.ssh/authorized_keys of the user on the server. restrict forbids everything except running commands:",
+    "Нет ssh-ключа: в образе нет ssh-keygen. Пересобери образ.": "No SSH key: ssh-keygen is missing in the image. Rebuild the image.",
+    "2. Раздай каталог с файлом веб-сервером по HTTPS. Имя файла сделай длинным и случайным: в нем все ключи нод.":
+        "2. Serve the file's directory over HTTPS. Make the file name long and random: it contains all node keys.",
+    "3. В клиенте укажи ссылку на файл на этом сервере, например https://wl.example.com/sub/<имя>.yaml":
+        "3. In the client, use the link to the file on that server, e.g. https://wl.example.com/sub/<name>.yaml",
+    "Публикуется на внешний сервер": "Published to an external server",
+    "адрес публикации: нужен вид user@host:/путь/файл или user@host:порт:/путь/файл":
+        "publish address: use user@host:/path/file or user@host:port:/path/file",
+    "токен приостановлен, публикация пропущена": "token is paused, publishing skipped",
+    "0 нод в выдаче, старый файл на сервере не тронут": "0 nodes in the output, the old file on the server was left as is",
+    "нет ssh-ключа и не получилось его создать": "no SSH key and it could not be created",
+    "ssh не ответил за 60 секунд": "ssh did not respond within 60 seconds",
     "Порт сервера не отвечает даже напрямую, без прокси. Пинг в клиентах тоже не пройдет":
         "The server port does not answer even directly, without the proxy. Client pings will fail too",
     "порт закрыт: сервер лежит или его IP заблокирован": "port closed: the server is down or its IP is blocked",

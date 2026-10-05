@@ -35,7 +35,13 @@ async def init_db() -> None:
 
 # create_all не трогает существующие таблицы, новые колонки докидываем сами
 _NEW_COLUMNS = {
-    "tokens": {"excluded_nodes": "JSON NOT NULL DEFAULT '[]'"},
+    "tokens": {
+        "excluded_nodes": "JSON NOT NULL DEFAULT '[]'",
+        "push_target": "TEXT",
+        "push_at": "DATETIME",
+        "push_error": "TEXT",
+        "push_nodes": "INTEGER",
+    },
     "nodes": {
         "exit_ip": "VARCHAR(64)",
         "exit_country": "VARCHAR(8)",

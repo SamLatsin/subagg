@@ -4,7 +4,7 @@ ARG MIHOMO_VERSION=v1.19.31
 ARG TARGETARCH=amd64
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl gzip tzdata \
+ && apt-get install -y --no-install-recommends ca-certificates curl gzip tzdata openssh-client \
  && rm -rf /var/lib/apt/lists/*
 
 # Ядро mihomo используется как движок проверки нод.

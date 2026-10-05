@@ -15,6 +15,7 @@ from .checker import run_check
 from .db import SessionLocal
 from .fetcher import sync_all
 from .models import utcnow
+from .publish import publish_all
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +80,11 @@ class Job:
 
 async def _fetch() -> object:
     async with SessionLocal() as session:
-        return await sync_all(session)
+        result = await sync_all(session)
+        # Внешние копии обновляем сразу за подписками, чтобы на сервере
+        # из белого списка лежал свежий список нод
+        await publish_all(session)
+        return result
 
 
 async def _check() -> object:
