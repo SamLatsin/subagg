@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}subagg{% endblock %}</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --line: #dfe3e8; --text: #1c2024;
+    --muted: #6b7280; --ok: #1a7f37; --bad: #b42318; --accent: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171a; --panel:#1c2024; --line:#2c3238; --text:#e6e8ea;
+            --muted:#9099a3; --ok:#3fb950; --bad:#f85149; --accent:#539bf5; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--text);
+         font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:0 0 10px; font-weight:600; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+          padding:14px; margin-bottom:14px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line);
+           vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase;
+       letter-spacing:.03em; }
+  tr:last-child td { border-bottom:none; }
+  code, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+  .muted { color:var(--muted); }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .pill { display:inline-block; padding:1px 6px; border:1px solid var(--line);
+          border-radius:20px; font-size:11px; margin-right:3px; }
+  form.inline { display:inline; }
+  button { font:inherit; padding:4px 10px; border:1px solid var(--line);
+           background:var(--bg); color:var(--text); border-radius:6px; cursor:pointer; }
+  button:hover { border-color:var(--accent); color:var(--accent); }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  input, select, textarea { font:inherit; padding:6px 8px; border:1px solid var(--line);
+           border-radius:6px; background:var(--bg); color:var(--text); width:100%; }
+  textarea { min-height:90px; font-family:ui-monospace,monospace; font-size:12px; }
+  .grid { display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .stats { display:flex; gap:18px; flex-wrap:wrap; margin-bottom:12px; }
+  .stat b { display:block; font-size:22px; font-weight:600; }
+  .stat span { color:var(--muted); font-size:12px; }
+  label.chk { display:flex; align-items:center; gap:6px; }
+  label.chk input { width:auto; }
+  .scroll { max-height:520px; overflow:auto; }
+  details summary { cursor:pointer; color:var(--muted); }
+  button.danger:hover { border-color:var(--bad); color:var(--bad); }
+  button.sm { padding:2px 8px; font-size:12px; }
+  a { color:var(--accent); }
+  .banner { padding:8px 12px; border-radius:8px; margin-bottom:14px;
+            border:1px solid var(--accent); color:var(--accent); background:var(--panel); }
+  .banner.bad { border-color:var(--bad); color:var(--bad); }
+  .hint { color:var(--muted); font-size:12px; margin:6px 0 0; }
+  tr.off td { opacity:.55; }
+  @media (max-width:640px) { body { padding:10px; } .hide-sm { display:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+{% block content %}{% endblock %}
+</div>
+<script>
+// Копирование ссылки. navigator.clipboard работает только по HTTPS,
+// по голому HTTP в локалке откатываемся на старый execCommand
+function copyText(text, btn) {
+  const done = () => { const old = btn.textContent; btn.textContent = "Скопировано";
+                       setTimeout(() => btn.textContent = old, 1500); };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done);
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  document.execCommand("copy"); ta.remove(); done();
+}
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

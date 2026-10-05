@@ -13,30 +13,46 @@ from .models import Node, Token
 from .uri import node_to_uri
 
 
-async def select_nodes(session: AsyncSession, token: Token) -> list[Node]:
-    q = select(Node).where(Node.enabled.is_(True))
-    nodes = (await session.execute(q)).scalars().all()
-
-    if token.only_alive:
-        nodes = [n for n in nodes if n.alive or n.pinned_alive]
-
-    if token.include_regex:
-        rx = re.compile(token.include_regex, re.IGNORECASE)
-        nodes = [n for n in nodes if rx.search(n.display_name)]
-    if token.exclude_regex:
-        rx = re.compile(token.exclude_regex, re.IGNORECASE)
-        nodes = [n for n in nodes if not rx.search(n.display_name)]
-
+def _order(n: Node):
     # Сначала свои, потом по стране и задержке - стабильный порядок в выдаче
-    def key(n: Node):
-        return (
-            0 if n.source == "own" else 1,
-            n.country or "ZZ",
-            n.last_latency_ms if n.last_latency_ms is not None else 99999,
-            n.display_name,
-        )
+    return (
+        0 if n.source == "own" else 1,
+        n.country or "ZZ",
+        n.last_latency_ms if n.last_latency_ms is not None else 99999,
+        n.display_name,
+    )
 
-    return sorted(nodes, key=key)
+
+async def explain_nodes(session: AsyncSession, token: Token) -> list[tuple[Node, str | None]]:
+    """Все ноды с причиной, по которой нода не попадает в выдачу токена.
+
+    None вместо причины - нода уходит в выдачу.
+    """
+    nodes = (await session.execute(select(Node))).scalars().all()
+    inc = re.compile(token.include_regex, re.IGNORECASE) if token.include_regex else None
+    exc = re.compile(token.exclude_regex, re.IGNORECASE) if token.exclude_regex else None
+    excluded = set(token.excluded_nodes or [])
+
+    out = []
+    for n in sorted(nodes, key=_order):
+        if not n.enabled:
+            reason = "выключена для всех"
+        elif n.id in excluded:
+            reason = "выключена для этого токена"
+        elif token.only_alive and not (n.alive or n.pinned_alive):
+            reason = "мертвая, а токен отдает только живые"
+        elif inc and not inc.search(n.display_name):
+            reason = "не подходит под include"
+        elif exc and exc.search(n.display_name):
+            reason = "попала под exclude"
+        else:
+            reason = None
+        out.append((n, reason))
+    return out
+
+
+async def select_nodes(session: AsyncSession, token: Token) -> list[Node]:
+    return [n for n, reason in await explain_nodes(session, token) if reason is None]
 
 
 def _proxy_dicts(nodes: list[Node]) -> list[dict]:

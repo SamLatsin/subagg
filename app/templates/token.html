@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{{ t.name }} · subagg{% endblock %}
+{% block content %}
+
+  <p style="margin:0 0 8px"><a href="/">← к админке</a></p>
+  <h1>Токен «{{ t.name }}»
+    {% if not t.enabled %}<span class="pill">приостановлен</span>{% endif %}</h1>
+  <p class="muted" style="margin-top:0">
+    Сейчас отдает <b>{{ given }}</b> из {{ rows|length }} нод.
+    Последний запрос: {{ t.last_used_at.strftime('%d.%m %H:%M') if t.last_used_at else 'не было' }}
+    {% if t.last_used_ip %}с {{ t.last_used_ip }}{% endif %}, всего {{ t.use_count }} раз.
+  </p>
+
+  <div class="card">
+    <h2>Ссылка</h2>
+    <div class="mono" style="word-break:break-all">{{ base_url }}/sub/{{ t.token }}</div>
+    <div class="row" style="margin-top:8px">
+      <button type="button" title="Скопировать ссылку, чтобы отправить человеку"
+              onclick='copyText({{ (base_url ~ "/sub/" ~ t.token)|tojson }}, this)'>⧉ Копировать</button>
+      <form class="inline" method="post" action="/tokens/{{ t.id }}/toggle">
+        {% if t.enabled %}
+        <button title="Ссылка начнет отвечать 404. Настройки сохранятся, можно включить обратно">⏸ Приостановить</button>
+        {% else %}
+        <button class="primary" title="Ссылка снова заработает">▶ Возобновить</button>
+        {% endif %}
+      </form>
+    </div>
+    <p class="hint">Изменения на этой странице ссылку не меняют. Устройство получит новый список
+      при следующем обновлении подписки у себя (или сразу, если обновить вручную).</p>
+  </div>
+
+  <div class="card">
+    <h2>Настройки</h2>
+    <form method="post" action="/tokens/{{ t.id }}">
+      <div class="grid">
+        <label>Имя<input name="name" required value="{{ t.name }}"></label>
+        <label>Формат
+          <select name="fmt" title="clash YAML для mihomo/Clash/Nikki, base64 для v2rayN, Hiddify, Streisand и т.п.">
+            {% for v, label in [('clash', 'clash YAML'), ('base64', 'base64'), ('uri', 'список ссылок')] %}
+            <option value="{{ v }}" {{ 'selected' if t.fmt == v }}>{{ label }}</option>
+            {% endfor %}
+          </select></label>
+        <label>Include regex<input name="include_regex" value="{{ t.include_regex or '' }}" placeholder="^\[RU\]"
+               title="Отдавать только ноды, чье имя подходит под выражение. Пусто - все"></label>
+        <label>Exclude regex<input name="exclude_regex" value="{{ t.exclude_regex or '' }}" placeholder="\[GAME\]"
+               title="Не отдавать ноды, чье имя подходит под выражение"></label>
+        <label class="chk" style="align-self:end" title="Мертвые ноды в выдачу не попадают">
+          <input type="checkbox" name="only_alive" value="true" {{ 'checked' if t.only_alive }}> только живые</label>
+      </div>
+      <button class="primary" style="margin-top:8px">Сохранить настройки</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Серверы</h2>
+    <p class="hint" style="margin:0 0 8px">Снятая галочка выключает ноду только для этого токена.
+      Новые ноды из подписок включаются сами. Серые строки не уходят в выдачу по другой причине,
+      она написана справа.</p>
+    <form method="post" action="/tokens/{{ t.id }}/nodes">
+      <div class="row" style="margin-bottom:8px">
+        <button type="button" class="sm" onclick="setAll(true)" title="Поставить все галочки">Отметить все</button>
+        <button type="button" class="sm" onclick="setAll(false)" title="Снять все галочки">Снять все</button>
+        <input id="flt" placeholder="поиск по имени" style="max-width:240px"
+               title="Фильтрует список на странице. «Отметить все» и «Снять все» действуют только на видимые строки">
+        <button class="primary" title="Применить галочки">Сохранить выбор</button>
+      </div>
+      <div class="scroll">
+      <table>
+        <tr><th></th><th>Имя</th><th class="hide-sm">Сервер</th><th>Задержка</th><th>В выдаче</th></tr>
+        {% for n, reason in rows %}
+        <tr class="node-row {{ 'off' if reason }}" data-name="{{ (n.display_name ~ ' ' ~ n.original_name)|lower }}">
+          <td>
+            <input type="hidden" name="shown" value="{{ n.id }}">
+            <input type="checkbox" name="node" value="{{ n.id }}" style="width:auto"
+                   {{ 'checked' if n.id not in excluded }}
+                   title="Отдавать эту ноду по этому токену">
+          </td>
+          <td>
+            {{ n.display_name }}
+            <div class="muted" style="font-size:11px">{{ n.original_name }}</div>
+          </td>
+          <td class="hide-sm mono muted">{{ n.server }}:{{ n.port }}</td>
+          <td>{{ n.last_latency_ms ~ ' мс' if n.last_latency_ms else '—' }}</td>
+          <td>
+            {% if reason %}<span class="muted">нет: {{ reason }}</span>
+            {% else %}<span class="ok">да</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+      </div>
+      <button class="primary" style="margin-top:8px">Сохранить выбор</button>
+    </form>
+  </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const rows = [...document.querySelectorAll(".node-row")];
+function setAll(on) {
+  rows.filter(r => !r.hidden).forEach(r => r.querySelector("input[name=node]").checked = on);
+}
+document.getElementById("flt").addEventListener("input", e => {
+  const q = e.target.value.trim().toLowerCase();
+  rows.forEach(r => r.hidden = q && !r.dataset.name.includes(q));
+});
+</script>
+{% endblock %}

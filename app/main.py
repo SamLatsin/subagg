@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,13 +17,13 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .checker import run_check
 from .config import settings
 from .db import SessionLocal, get_session, init_db
-from .fetcher import add_own_nodes, expire_date, sync_all, sync_subscription
+from .fetcher import add_own_nodes, expire_date, sync_subscription
+from .jobs import CHECK, FETCH, JOBS
 from .models import CheckResult, CheckTarget, Node, Subscription, Token, utcnow
 from .parsers import parse_subscription_body, parse_uri
-from .render import render_base64, render_clash, render_uri_list, select_nodes
+from .render import explain_nodes, render_base64, render_clash, render_uri_list, select_nodes
 from .xray import parse_xray_json
 
 logging.basicConfig(
@@ -57,23 +58,13 @@ async def seed_targets() -> None:
         log.info("созданы цели проверки по умолчанию")
 
 
-async def job_fetch() -> None:
-    async with SessionLocal() as session:
-        await sync_all(session)
-
-
-async def job_check() -> None:
-    async with SessionLocal() as session:
-        await run_check(session)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await seed_targets()
-    scheduler.add_job(job_fetch, IntervalTrigger(minutes=settings.fetch_interval_min),
+    scheduler.add_job(FETCH.run, IntervalTrigger(minutes=settings.fetch_interval_min),
                       id="fetch", max_instances=1, coalesce=True)
-    scheduler.add_job(job_check, IntervalTrigger(minutes=settings.check_interval_min),
+    scheduler.add_job(CHECK.run, IntervalTrigger(minutes=settings.check_interval_min),
                       id="check", max_instances=1, coalesce=True)
     scheduler.start()
     log.info("сервис запущен, обновление подписок каждые %d мин, проверка каждые %d мин",
@@ -191,13 +182,30 @@ async def index(
             "fails": fails,
             "settings": settings,
             "expire_date": expire_date,
-            "base_url": str(request.base_url).rstrip("/"),
+            "base_url": _base_url(request),
+            "jobs": [j.status() for j in JOBS],
         },
     )
 
 
-def _back() -> RedirectResponse:
-    return RedirectResponse("/", status_code=303)
+def _base_url(request: Request) -> str:
+    """Адрес для ссылок на подписки: из SUBAGG_PUBLIC_URL, иначе текущий."""
+    return (settings.public_url or str(request.base_url)).rstrip("/")
+
+
+def _back(to: str = "/") -> RedirectResponse:
+    return RedirectResponse(to, status_code=303)
+
+
+def _check_regex(value: str, field: str) -> str | None:
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        re.compile(value)
+    except re.error as exc:
+        raise HTTPException(status_code=400, detail=f"{field}: кривой regex: {exc}") from exc
+    return value
 
 
 @app.post("/subs")
@@ -407,17 +415,103 @@ async def add_token(
     _: str = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    session.add(
-        Token(
-            name=name.strip(),
-            fmt=fmt,
-            include_regex=include_regex.strip() or None,
-            exclude_regex=exclude_regex.strip() or None,
-            only_alive=only_alive,
-        )
+    token = Token(
+        name=name.strip(),
+        fmt=fmt,
+        include_regex=_check_regex(include_regex, "include"),
+        exclude_regex=_check_regex(exclude_regex, "exclude"),
+        only_alive=only_alive,
+        excluded_nodes=[],
     )
+    session.add(token)
     await session.commit()
-    return _back()
+    return _back(f"/tokens/{token.id}")
+
+
+async def _get_token(session: AsyncSession, token_id: int) -> Token:
+    token = await session.get(Token, token_id)
+    if not token:
+        raise HTTPException(status_code=404, detail="нет такого токена")
+    return token
+
+
+@app.get("/tokens/{token_id}", response_class=HTMLResponse)
+async def token_page(
+    token_id: int,
+    request: Request,
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Что получит устройство по этому токену и почему не получит остальное."""
+    token = await _get_token(session, token_id)
+    rows = await explain_nodes(session, token)
+    return TEMPLATES.TemplateResponse(
+        request,
+        "token.html",
+        {
+            "t": token,
+            "rows": rows,
+            "given": sum(1 for _, reason in rows if reason is None),
+            "excluded": set(token.excluded_nodes or []),
+            "base_url": _base_url(request),
+        },
+    )
+
+
+@app.post("/tokens/{token_id}")
+async def update_token(
+    token_id: int,
+    name: str = Form(...),
+    fmt: str = Form("clash"),
+    include_regex: str = Form(""),
+    exclude_regex: str = Form(""),
+    only_alive: bool = Form(False),
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    token = await _get_token(session, token_id)
+    token.name = name.strip()
+    token.fmt = fmt
+    token.include_regex = _check_regex(include_regex, "include")
+    token.exclude_regex = _check_regex(exclude_regex, "exclude")
+    token.only_alive = only_alive
+    await session.commit()
+    return _back(f"/tokens/{token_id}")
+
+
+@app.post("/tokens/{token_id}/nodes")
+async def update_token_nodes(
+    token_id: int,
+    request: Request,
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Галочки на странице токена: отмеченные ноды отдаем, остальные нет.
+
+    Трогаем только ноды, которые были на странице: если пока ее смотрели,
+    из подписки пришли новые, они остаются включенными.
+    """
+    token = await _get_token(session, token_id)
+    form = await request.form()
+    shown = {int(v) for v in form.getlist("shown")}
+    checked = {int(v) for v in form.getlist("node")}
+    excluded = set(token.excluded_nodes or []) - shown
+    excluded |= shown - checked
+    token.excluded_nodes = sorted(excluded)
+    await session.commit()
+    return _back(f"/tokens/{token_id}")
+
+
+@app.post("/tokens/{token_id}/toggle")
+async def toggle_token(
+    token_id: int,
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    token = await _get_token(session, token_id)
+    token.enabled = not token.enabled
+    await session.commit()
+    return _back(f"/tokens/{token_id}")
 
 
 @app.post("/tokens/{token_id}/delete")
@@ -434,21 +528,20 @@ async def delete_token(
 
 
 @app.post("/actions/refresh")
-async def action_refresh(
-    _: str = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-):
-    await sync_all(session)
+async def action_refresh(_: str = Depends(require_admin)):
+    FETCH.start()
     return _back()
 
 
 @app.post("/actions/check")
-async def action_check(
-    _: str = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-):
-    await run_check(session)
+async def action_check(_: str = Depends(require_admin)):
+    CHECK.start()
     return _back()
+
+
+@app.get("/api/jobs")
+async def api_jobs(_: str = Depends(require_admin)):
+    return [j.status() for j in JOBS]
 
 
 @app.get("/api/stats")

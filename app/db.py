@@ -29,7 +29,24 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_missing_columns)
     await _refresh_fingerprints()
+
+
+# create_all не трогает существующие таблицы, новые колонки докидываем сами
+_NEW_COLUMNS = {
+    "tokens": {"excluded_nodes": "JSON NOT NULL DEFAULT '[]'"},
+}
+
+
+def _add_missing_columns(conn) -> None:
+    from sqlalchemy import text
+
+    for table, cols in _NEW_COLUMNS.items():
+        have = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+        for name, ddl in cols.items():
+            if name not in have:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
 
 async def _refresh_fingerprints() -> None:

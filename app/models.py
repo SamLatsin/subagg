@@ -128,6 +128,9 @@ class Token(Base):
     include_regex: Mapped[str | None] = mapped_column(Text)
     exclude_regex: Mapped[str | None] = mapped_column(Text)
     only_alive: Mapped[bool] = mapped_column(Boolean, default=True)
+    # id нод, вручную исключенных из выдачи этого токена. Черный список,
+    # чтобы новые ноды из подписок попадали в выдачу без ручной правки
+    excluded_nodes: Mapped[list] = mapped_column(JSON, default=list)
 
     last_used_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_ip: Mapped[str | None] = mapped_column(String(64))

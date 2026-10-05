@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     data_dir: Path = Path("/data")
     mihomo_bin: str = "/usr/local/bin/mihomo"
 
+    # Внешний адрес сервиса для ссылок на подписки, например https://sub.example.com.
+    # Пусто - берется адрес, по которому открыта админка
+    public_url: str = ""
+
     admin_user: str = "admin"
     admin_password: str = "change-me-please"
 
