@@ -182,6 +182,12 @@ EN: dict[str, str] = {
         "that cannot be checked from here",
     "Всегда отдавать": "Always serve",
     "Пинг": "Ping",
+    "Источник": "Source",
+    "свои": "own",
+    "выход": "exit",
+    "заявлена {claimed}, выход": "claims {claimed}, exits in",
+    "Реальный IP выхода и его страна по геобазе: так ноду видят сайты":
+        "Actual exit IP and its country by GeoIP: this is how websites see the node",
     "Проверяю…": "Checking…",
     "Проверить только эту ноду прямо сейчас: задержка и какие цели не прошли. Несколько секунд":
         "Check just this node right now: latency and which targets fail. Takes a few seconds",

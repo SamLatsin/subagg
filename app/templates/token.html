@@ -71,7 +71,7 @@
       </div>
       <div class="scroll">
       <table>
-        <tr><th></th><th>{{ _('Имя') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th><th>{{ _('В выдаче') }}</th></tr>
+        <tr><th></th><th>{{ _('Имя') }}</th><th>{{ _('Источник') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th><th>{{ _('В выдаче') }}</th></tr>
         {% for n, reason in rows %}
         <tr class="node-row {{ 'off' if reason }}" data-name="{{ (n.display_name ~ ' ' ~ n.original_name)|lower }}">
           <td>
@@ -84,6 +84,7 @@
             {{ n.display_name }}
             <div class="muted" style="font-size:11px">{{ n.original_name }}</div>
           </td>
+          <td>{% include "_node_source.html" %}</td>
           <td class="hide-sm mono muted">{{ n.server }}:{{ n.port }}</td>
           <td>{{ _('{n} мс').format(n=n.last_latency_ms) if n.last_latency_ms else '—' }}</td>
           <td>

@@ -262,7 +262,7 @@
     <p class="hint" style="margin:0 0 8px">{{ _('«Выключить» убирает ноду из выдачи всех токенов. Чтобы убрать ее только у одного человека, используй страницу токена.') }}</p>
     <div class="scroll">
     <table>
-      <tr><th>{{ _('Имя') }}</th><th>{{ _('Теги') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th>
+      <tr><th>{{ _('Имя') }}</th><th>{{ _('Источник') }}</th><th>{{ _('Теги') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th>
           <th>{{ _('Статус') }}</th><th></th></tr>
       {% for n in nodes %}
       <tr class="{{ '' if n.enabled else 'off' }}" id="node-{{ n.id }}">
@@ -270,6 +270,7 @@
           {{ n.display_name }}
           <div class="muted" style="font-size:11px">{{ n.original_name }}</div>
         </td>
+        <td>{% include "_node_source.html" %}</td>
         <td>{% for t in n.tags %}<span class="pill">{{ t }}</span>{% endfor %}</td>
         <td class="hide-sm mono muted">{{ n.proto }} {{ n.server }}:{{ n.port }}</td>
         <td class="node-latency">{{ _('{n} мс').format(n=n.last_latency_ms) if n.last_latency_ms else '—' }}</td>

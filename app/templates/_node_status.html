@@ -8,3 +8,11 @@
           {% if fails.get(n.id) %}
             <div class="muted" style="font-size:11px">{{ _('не прошла:') }} {{ fails[n.id]|join(', ') }}</div>
           {% endif %}
+          {% if n.exit_country %}
+            {% set mismatch = n.country and n.country != n.exit_country %}
+            <div class="{{ 'bad' if mismatch else 'muted' }}" style="font-size:11px"
+                 title="{{ _('Реальный IP выхода и его страна по геобазе: так ноду видят сайты') }}">
+              {% if mismatch %}⚠ {{ _('заявлена {claimed}, выход').format(claimed=n.country) }}{% else %}{{ _('выход') }}{% endif %}
+              {{ n.exit_country|flag }} {{ n.exit_country }}{% if n.exit_ip %} · {{ n.exit_ip }}{% endif %}
+            </div>
+          {% endif %}

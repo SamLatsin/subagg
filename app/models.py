@@ -78,6 +78,11 @@ class Node(Base):
     fail_streak: Mapped[int] = mapped_column(Integer, default=0)
     last_latency_ms: Mapped[int | None] = mapped_column(Integer)
     last_check_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # Куда нода выводит на самом деле: IP и страна по геобазе, как их видят сайты.
+    # country выше - то, что заявлено в названии
+    exit_ip: Mapped[str | None] = mapped_column(String(64))
+    exit_country: Mapped[str | None] = mapped_column(String(8))
+    exit_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

@@ -27,6 +27,7 @@ from .i18n import gettext as tr
 from .checker import run_check
 from .jobs import CHECK, FETCH, JOBS, MIHOMO_LOCK
 from .models import CheckResult, CheckTarget, Node, Subscription, Token, utcnow
+from .normalize import flag_emoji
 from .parsers import parse_subscription_body, parse_uri
 from .render import explain_nodes, render_base64, render_clash, render_uri_list, select_nodes
 from .xray import parse_xray_json
@@ -44,6 +45,7 @@ TEMPLATES = Jinja2Templates(
 TEMPLATES.env.globals["_"] = tr
 # В админке у подписок показываем только домен: в пути и query лежат ключи
 TEMPLATES.env.filters["host"] = lambda url: urlparse(url).hostname or "?"
+TEMPLATES.env.filters["flag"] = flag_emoji
 
 DEFAULT_TARGETS = [
     # required: если эта цель не прошла, нода считается мертвой
@@ -204,6 +206,7 @@ async def index(
             "tokens": tokens,
             "stats": stats,
             "fails": fails,
+            "sources": {s.id: s.name for s in subs},
             "settings": settings,
             "expire_date": expire_date,
             "base_url": _base_url(request),
@@ -389,7 +392,7 @@ async def check_node(
     if MIHOMO_LOCK.locked():
         raise HTTPException(status_code=409, detail=tr("Идет другая проверка, попробуй через минуту"))
     async with MIHOMO_LOCK:
-        summary = await run_check(session, [node_id])
+        summary = await run_check(session, [node_id], force_geo=True)
     if summary.get("error"):
         raise HTTPException(status_code=502, detail=tr(summary["error"]))
 
@@ -569,6 +572,7 @@ async def token_page(
     """Что получит устройство по этому токену и почему не получит остальное."""
     token = await _get_token(session, token_id)
     rows = await explain_nodes(session, token)
+    subs = (await session.execute(select(Subscription))).scalars().all()
     return TEMPLATES.TemplateResponse(
         request,
         "token.html",
@@ -577,6 +581,7 @@ async def token_page(
             "rows": rows,
             "given": sum(1 for _, reason in rows if reason is None),
             "excluded": set(token.excluded_nodes or []),
+            "sources": {s.id: s.name for s in subs},
             "base_url": _base_url(request),
         },
     )

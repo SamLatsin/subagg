@@ -1,0 +1,6 @@
+{# Откуда нода: имя подписки или «свои» #}
+{%- if n.source == 'own' -%}
+  <span class="pill">{{ _('свои') }}</span>
+{%- else -%}
+  {{ sources.get(n.subscription_id, '—') }}
+{%- endif -%}

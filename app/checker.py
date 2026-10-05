@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import logging
 import re
 import secrets
@@ -31,6 +32,9 @@ log = logging.getLogger(__name__)
 BAD_INDEX_RE = re.compile(r"proxy\s+(\d+)\s*:", re.IGNORECASE)
 BAD_NAME_RE = re.compile(r"\b(n\d+)\b")
 
+# Сервисы, которые отвечают IP и страной того, кто пришел. Второй - запасной
+GEO_URLS = ("https://api.country.is/", "https://ipinfo.io/json")
+
 
 class MihomoRunner:
     """Временный экземпляр ядра только для замеров задержки."""
@@ -42,6 +46,8 @@ class MihomoRunner:
         self.secret = secrets.token_urlsafe(16)
         self.proc: asyncio.subprocess.Process | None = None
         self.dropped: list[str] = []
+        # Локальный вход на каждую ноду: запрос в этот порт уходит строго через нее
+        self.listen_ports: dict[str, int] = {}
 
     @property
     def api(self) -> str:
@@ -53,6 +59,13 @@ class MihomoRunner:
 
     def _config(self, proxies: list[dict]) -> dict:
         dns_servers = [s.strip() for s in settings.checker_dns.split(",") if s.strip()]
+        self.listen_ports = {
+            p["name"]: settings.checker_geo_port_base + i for i, p in enumerate(proxies)
+        }
+        listeners = [
+            {"name": f"in-{name}", "type": "mixed", "listen": "127.0.0.1", "port": port, "proxy": name}
+            for name, port in self.listen_ports.items()
+        ]
         return {
             "log-level": "warning",
             "mode": "rule",
@@ -69,6 +82,7 @@ class MihomoRunner:
                 "nameserver": dns_servers,
             },
             "proxies": proxies,
+            "listeners": listeners,
             "proxy-groups": [],
             "rules": ["MATCH,DIRECT"],
         }
@@ -170,6 +184,23 @@ class MihomoRunner:
                 self.proc.kill()
                 await self.proc.wait()
 
+    async def exit_geo(self, name: str, timeout_ms: int) -> tuple[str | None, str | None]:
+        """Реальный IP и страна выхода ноды. (None, None), если узнать не вышло."""
+        port = self.listen_ports.get(name)
+        if port is None:
+            return None, None
+        async with httpx.AsyncClient(proxy=f"http://127.0.0.1:{port}",
+                                     timeout=timeout_ms / 1000 + 4) as client:
+            for url in GEO_URLS:
+                try:
+                    data = (await client.get(url)).json()
+                except (httpx.HTTPError, ValueError):
+                    continue
+                country = str(data.get("country") or "").upper()
+                if len(country) == 2:
+                    return str(data.get("ip") or "") or None, country
+        return None, None
+
     async def delay(self, client: httpx.AsyncClient, name: str, url: str, timeout_ms: int,
                     expected: int) -> tuple[int | None, str | None]:
         params = {"url": url, "timeout": str(timeout_ms), "expected": str(expected)}
@@ -194,8 +225,22 @@ class MihomoRunner:
         return None, str(msg)[:200]
 
 
-async def run_check(session: AsyncSession, node_ids: list[int] | None = None) -> dict:
-    """Прогнать проверку и записать вердикты. Вернуть сводку."""
+def _geo_stale(node: Node) -> bool:
+    if node.exit_checked_at is None:
+        return True
+    checked = node.exit_checked_at
+    if checked.tzinfo is None:  # sqlite отдает время без зоны
+        checked = checked.replace(tzinfo=dt.timezone.utc)
+    return utcnow() - checked > dt.timedelta(hours=settings.geo_recheck_hours)
+
+
+async def run_check(session: AsyncSession, node_ids: list[int] | None = None,
+                    force_geo: bool = False) -> dict:
+    """Прогнать проверку и записать вердикты. Вернуть сводку.
+
+    Заодно для ответивших нод узнаем реальную страну выхода: раз в
+    geo_recheck_hours или сразу, если force_geo (пинг одной ноды из админки).
+    """
     q = select(Node).where(Node.enabled.is_(True))
     if node_ids:
         q = q.where(Node.id.in_(node_ids))
@@ -221,6 +266,7 @@ async def run_check(session: AsyncSession, node_ids: list[int] | None = None) ->
 
     sem = asyncio.Semaphore(settings.check_concurrency)
     results: dict[str, list[tuple[CheckTarget, int | None, str | None]]] = {k: [] for k in by_key}
+    geo: dict[str, tuple[str | None, str | None]] = {}
 
     try:
         async with MihomoRunner(proxies, settings.work_dir, settings.checker_api_port) as runner:
@@ -242,6 +288,18 @@ async def run_check(session: AsyncSession, node_ids: list[int] | None = None) ->
                     *(probe(k, t) for k in alive_keys for t in targets),
                     return_exceptions=True,
                 )
+
+            async def locate(key: str) -> None:
+                async with sem:
+                    geo[key] = await runner.exit_geo(key, settings.check_timeout_ms)
+
+            # Страну спрашиваем только у нод, которые хоть куда-то ответили
+            need_geo = [
+                k for k in alive_keys
+                if any(lat is not None for _, lat, _ in results[k])
+                and (force_geo or _geo_stale(by_key[k]))
+            ]
+            await asyncio.gather(*(locate(k) for k in need_geo), return_exceptions=True)
 
             # ноды, которые ядро не приняло, считаем мертвыми
             for key in by_key:
@@ -291,6 +349,13 @@ async def run_check(session: AsyncSession, node_ids: list[int] | None = None) ->
             if node.last_check_at is None or node.fail_streak >= settings.dead_after_fails:
                 node.alive = False
         node.last_check_at = now
+        if key in geo:
+            ip, country = geo[key]
+            # Не узнали - не отмечаем, спросим на следующей проверке
+            if country:
+                node.exit_ip = ip
+                node.exit_country = country
+                node.exit_checked_at = now
 
         if node.alive:
             summary["alive"] += 1
