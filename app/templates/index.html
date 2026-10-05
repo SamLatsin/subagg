@@ -229,6 +229,10 @@
           <label class="chk" style="align-self:end" title="Мертвые ноды в выдачу не попадают">
             <input type="checkbox" name="only_alive" value="true" checked> только живые</label>
         </div>
+        <label style="display:block;margin-top:8px">Токен или старая ссылка
+          <input name="token_value" class="mono" placeholder="пусто - сгенерируется случайный"
+                 title="Чтобы восстановить выданную раньше ссылку, вставь ее целиком или только часть после /sub/"></label>
+        <p class="hint">Заполняй только при восстановлении: вставь старую ссылку, и у людей все заработает без перенастройки.</p>
         <button class="primary" style="margin-top:8px">Создать</button>
       </form>
     </details>

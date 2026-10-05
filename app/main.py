@@ -197,6 +197,32 @@ def _back(to: str = "/") -> RedirectResponse:
     return RedirectResponse(to, status_code=303)
 
 
+TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+
+
+async def _token_value(session: AsyncSession, value: str, token_id: int | None = None) -> str | None:
+    """Проверить токен, заданный руками. Пусто - None, сгенерируется сам.
+
+    Можно вставить ссылку целиком: берем то, что после /sub/. Так после
+    потери базы старые ссылки восстанавливаются копипастой с телефона.
+    """
+    value = value.strip()
+    if "/sub/" in value:
+        value = value.split("/sub/", 1)[1]
+    value = value.split("?", 1)[0].strip("/")
+    if not value:
+        return None
+    if not TOKEN_RE.match(value):
+        raise HTTPException(
+            status_code=400,
+            detail="токен: от 8 до 64 символов, только латиница, цифры, - и _",
+        )
+    other = (await session.execute(select(Token).where(Token.token == value))).scalar_one_or_none()
+    if other is not None and other.id != token_id:
+        raise HTTPException(status_code=400, detail=f"токен уже занят токеном «{other.name}»")
+    return value
+
+
 def _check_regex(value: str, field: str) -> str | None:
     value = value.strip()
     if not value:
@@ -412,9 +438,11 @@ async def add_token(
     include_regex: str = Form(""),
     exclude_regex: str = Form(""),
     only_alive: bool = Form(False),
+    token_value: str = Form(""),
     _: str = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
+    value = await _token_value(session, token_value)
     token = Token(
         name=name.strip(),
         fmt=fmt,
@@ -423,6 +451,8 @@ async def add_token(
         only_alive=only_alive,
         excluded_nodes=[],
     )
+    if value:
+        token.token = value
     session.add(token)
     await session.commit()
     return _back(f"/tokens/{token.id}")
@@ -466,10 +496,14 @@ async def update_token(
     include_regex: str = Form(""),
     exclude_regex: str = Form(""),
     only_alive: bool = Form(False),
+    token_value: str = Form(""),
     _: str = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     token = await _get_token(session, token_id)
+    value = await _token_value(session, token_value, token_id)
+    if value:
+        token.token = value
     token.name = name.strip()
     token.fmt = fmt
     token.include_regex = _check_regex(include_regex, "include")

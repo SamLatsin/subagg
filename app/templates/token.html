@@ -47,6 +47,11 @@
         <label class="chk" style="align-self:end" title="Мертвые ноды в выдачу не попадают">
           <input type="checkbox" name="only_alive" value="true" {{ 'checked' if t.only_alive }}> только живые</label>
       </div>
+      <label style="display:block;margin-top:8px">Токен в ссылке
+        <input name="token_value" class="mono" value="{{ t.token }}"
+               title="Часть ссылки после /sub/. Можно вставить ссылку целиком"></label>
+      <p class="hint">Если поменять токен, старая ссылка перестанет работать у всех, кому ее раздали.
+        Меняй, только чтобы восстановить прежнюю ссылку после потери базы.</p>
       <button class="primary" style="margin-top:8px">Сохранить настройки</button>
     </form>
   </div>
