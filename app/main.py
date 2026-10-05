@@ -15,11 +15,14 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .db import SessionLocal, get_session, init_db
 from .fetcher import add_own_nodes, expire_date, sync_subscription
+from .i18n import DEFAULT_LANG, LANGS, current_lang
+from .i18n import gettext as tr
 from .jobs import CHECK, FETCH, JOBS
 from .models import CheckResult, CheckTarget, Node, Subscription, Token, utcnow
 from .parsers import parse_subscription_body, parse_uri
@@ -32,7 +35,11 @@ logging.basicConfig(
 )
 log = logging.getLogger("subagg")
 
-TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+TEMPLATES = Jinja2Templates(
+    directory=str(Path(__file__).parent / "templates"),
+    context_processors=[lambda request: {"lang": current_lang.get()}],
+)
+TEMPLATES.env.globals["_"] = tr
 
 DEFAULT_TARGETS = [
     # required: если эта цель не прошла, нода считается мертвой
@@ -77,13 +84,30 @@ app = FastAPI(title="subagg", lifespan=lifespan)
 security = HTTPBasic(auto_error=True)
 
 
+@app.middleware("http")
+async def set_lang(request: Request, call_next):
+    lang = request.cookies.get("lang")
+    current_lang.set(lang if lang in LANGS else DEFAULT_LANG)
+    return await call_next(request)
+
+
+@app.get("/lang/{code}")
+async def switch_lang(code: str, request: Request):
+    """Переключатель языка в шапке: запомнить в cookie и вернуться назад."""
+    back = request.headers.get("referer") or "/"
+    resp = RedirectResponse(back, status_code=303)
+    if code in LANGS:
+        resp.set_cookie("lang", code, max_age=365 * 24 * 3600, samesite="lax")
+    return resp
+
+
 def require_admin(creds: HTTPBasicCredentials = Depends(security)) -> str:
     ok_user = secrets.compare_digest(creds.username, settings.admin_user)
     ok_pass = secrets.compare_digest(creds.password, settings.admin_password)
     if not (ok_user and ok_pass):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="неверный логин или пароль",
+            detail=tr("неверный логин или пароль"),
             headers={"WWW-Authenticate": "Basic"},
         )
     return creds.username
@@ -215,11 +239,11 @@ async def _token_value(session: AsyncSession, value: str, token_id: int | None =
     if not TOKEN_RE.match(value):
         raise HTTPException(
             status_code=400,
-            detail="токен: от 8 до 64 символов, только латиница, цифры, - и _",
+            detail=tr("токен: от 8 до 64 символов, только латиница, цифры, - и _"),
         )
     other = (await session.execute(select(Token).where(Token.token == value))).scalar_one_or_none()
     if other is not None and other.id != token_id:
-        raise HTTPException(status_code=400, detail=f"токен уже занят токеном «{other.name}»")
+        raise HTTPException(status_code=400, detail=tr("токен уже занят токеном «{name}»").format(name=other.name))
     return value
 
 
@@ -230,7 +254,7 @@ def _check_regex(value: str, field: str) -> str | None:
     try:
         re.compile(value)
     except re.error as exc:
-        raise HTTPException(status_code=400, detail=f"{field}: кривой regex: {exc}") from exc
+        raise HTTPException(status_code=400, detail=tr("{field}: кривой regex: {error}").format(field=field, error=exc)) from exc
     return value
 
 
@@ -247,9 +271,9 @@ async def add_sub(
     try:
         headers = json.loads(headers_json) if headers_json.strip() else {}
         if not isinstance(headers, dict):
-            raise ValueError("ожидается JSON-объект")
+            raise ValueError(tr("ожидается JSON-объект"))
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"заголовки: {exc}") from exc
+        raise HTTPException(status_code=400, detail=tr("заголовки: {error}").format(error=exc)) from exc
 
     sub = Subscription(
         name=name.strip(),
@@ -272,7 +296,7 @@ async def refresh_sub(
 ):
     sub = await session.get(Subscription, sub_id)
     if not sub:
-        raise HTTPException(status_code=404, detail="нет такой подписки")
+        raise HTTPException(status_code=404, detail=tr("нет такой подписки"))
     await sync_subscription(session, sub)
     return _back()
 
@@ -285,7 +309,7 @@ async def toggle_sub(
 ):
     sub = await session.get(Subscription, sub_id)
     if not sub:
-        raise HTTPException(status_code=404, detail="нет такой подписки")
+        raise HTTPException(status_code=404, detail=tr("нет такой подписки"))
     sub.enabled = not sub.enabled
     await session.commit()
     return _back()
@@ -320,7 +344,7 @@ async def add_own(
         try:
             proxies = parse_xray_json(text)
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=f"не разобран JSON: {exc}") from exc
+            raise HTTPException(status_code=400, detail=tr("не разобран JSON: {error}").format(error=exc)) from exc
     elif "proxies:" in text[:2048]:
         data = yaml.safe_load(text)
         if isinstance(data, dict):
@@ -334,7 +358,7 @@ async def add_own(
             proxies = parse_subscription_body(text)
 
     if not proxies:
-        raise HTTPException(status_code=400, detail="ничего не разобрано из вставленного текста")
+        raise HTTPException(status_code=400, detail=tr("ничего не разобрано из вставленного текста"))
 
     added = await add_own_nodes(session, proxies, tags)
     log.info("добавлено своих нод: %d (всего разобрано %d)", added, len(proxies))
@@ -349,7 +373,7 @@ async def toggle_node(
 ):
     node = await session.get(Node, node_id)
     if not node:
-        raise HTTPException(status_code=404, detail="нет такой ноды")
+        raise HTTPException(status_code=404, detail=tr("нет такой ноды"))
     node.enabled = not node.enabled
     await session.commit()
     return _back()
@@ -363,7 +387,7 @@ async def pin_node(
 ):
     node = await session.get(Node, node_id)
     if not node:
-        raise HTTPException(status_code=404, detail="нет такой ноды")
+        raise HTTPException(status_code=404, detail=tr("нет такой ноды"))
     node.pinned_alive = not node.pinned_alive
     await session.commit()
     return _back()
@@ -400,7 +424,38 @@ async def add_target(
             timeout_ms=settings.check_timeout_ms,
         )
     )
-    await session.commit()
+    await _commit_target(session)
+    return _back()
+
+
+async def _commit_target(session: AsyncSession) -> None:
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=tr("цель с таким именем уже есть")) from exc
+
+
+@app.post("/targets/{target_id}")
+async def update_target(
+    target_id: int,
+    name: str = Form(...),
+    url: str = Form(...),
+    expected_status: int = Form(204),
+    timeout_ms: int = Form(6000),
+    required: bool = Form(False),
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    t = await session.get(CheckTarget, target_id)
+    if not t:
+        raise HTTPException(status_code=404, detail=tr("нет такой цели"))
+    t.name = name.strip()
+    t.url = url.strip()
+    t.expected_status = expected_status
+    t.timeout_ms = max(500, timeout_ms)
+    t.required = required
+    await _commit_target(session)
     return _back()
 
 
@@ -412,7 +467,7 @@ async def toggle_target(
 ):
     t = await session.get(CheckTarget, target_id)
     if not t:
-        raise HTTPException(status_code=404, detail="нет такой цели")
+        raise HTTPException(status_code=404, detail=tr("нет такой цели"))
     t.enabled = not t.enabled
     await session.commit()
     return _back()
@@ -461,7 +516,7 @@ async def add_token(
 async def _get_token(session: AsyncSession, token_id: int) -> Token:
     token = await session.get(Token, token_id)
     if not token:
-        raise HTTPException(status_code=404, detail="нет такого токена")
+        raise HTTPException(status_code=404, detail=tr("нет такого токена"))
     return token
 
 

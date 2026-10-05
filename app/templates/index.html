@@ -3,51 +3,51 @@
 
   <h1>subagg</h1>
   <p class="muted" style="margin-top:0">
-    Агрегатор подписок. Обновление каждые {{ settings.fetch_interval_min }} мин,
-    проверка нод каждые {{ settings.check_interval_min }} мин.
+    {{ _('Агрегатор подписок. Обновление каждые {fetch} мин, проверка нод каждые {check} мин.').format(
+         fetch=settings.fetch_interval_min, check=settings.check_interval_min) }}
   </p>
 
   {% for j in jobs %}
     {% if j.running %}
-    <div class="banner job-running">⏳ {{ j.title }} идет в фоне. Страница обновится сама, когда закончится.</div>
+    <div class="banner job-running">⏳ {{ _('{title} идет в фоне. Страница обновится сама, когда закончится.').format(title=_(j.title)) }}</div>
     {% elif j.error %}
-    <div class="banner bad">✕ {{ j.title }}: ошибка. {{ j.error }}</div>
+    <div class="banner bad">✕ {{ _('{title}: ошибка.').format(title=_(j.title)) }} {{ _(j.error) }}</div>
     {% endif %}
   {% endfor %}
 
   <div class="card">
     <div class="stats">
-      <div class="stat" title="Все ноды из подписок плюс свои"><b>{{ stats.nodes }}</b><span>нод всего</span></div>
-      <div class="stat" title="Прошли последнюю проверку"><b class="ok">{{ stats.alive }}</b><span>живых</span></div>
-      <div class="stat" title="Ноды с выходом в России"><b>{{ stats.ru }}</b><span>RU</span></div>
-      <div class="stat" title="Ноды, где разрешены торренты"><b>{{ stats.tor }}</b><span>торрент</span></div>
-      <div class="stat" title="Добавленные вручную на вкладке «Свои ноды»"><b>{{ stats.own }}</b><span>своих</span></div>
+      <div class="stat" title="{{ _('Все ноды из подписок плюс свои') }}"><b>{{ stats.nodes }}</b><span>{{ _('нод всего') }}</span></div>
+      <div class="stat" title="{{ _('Прошли последнюю проверку') }}"><b class="ok">{{ stats.alive }}</b><span>{{ _('живых') }}</span></div>
+      <div class="stat" title="{{ _('Ноды с выходом в России') }}"><b>{{ stats.ru }}</b><span>RU</span></div>
+      <div class="stat" title="{{ _('Ноды, где разрешены торренты') }}"><b>{{ stats.tor }}</b><span>{{ _('торрент') }}</span></div>
+      <div class="stat" title="{{ _('Добавленные вручную в разделе «Свои ноды»') }}"><b>{{ stats.own }}</b><span>{{ _('своих') }}</span></div>
     </div>
     <div class="row">
       <form class="inline" method="post" action="/actions/refresh">
-        <button class="primary" title="Заново скачать все включенные подписки и обновить список нод. Идет в фоне">↻ Обновить подписки</button>
+        <button class="primary" title="{{ _('Заново скачать все включенные подписки и обновить список нод. Идет в фоне') }}">↻ {{ _('Обновить подписки') }}</button>
       </form>
       <form class="inline" method="post" action="/actions/check">
-        <button title="Проверить все ноды через ядро mihomo. Идет в фоне, можно уйти со страницы">✓ Проверить ноды</button>
+        <button title="{{ _('Проверить все ноды через ядро mihomo. Идет в фоне, можно уйти со страницы') }}">✓ {{ _('Проверить ноды') }}</button>
       </form>
-      <span class="muted">обе операции идут в фоне, страницу можно не ждать</span>
+      <span class="muted">{{ _('обе операции идут в фоне, страницу можно не ждать') }}</span>
     </div>
   </div>
 
   <!-- ------------------------------------------------------------------ -->
   <div class="card">
-    <h2>Подписки</h2>
+    <h2>{{ _('Подписки') }}</h2>
     <table>
       <tr>
-        <th>Имя</th><th>Нод</th><th class="hide-sm">UA / заголовки</th>
-        <th>Обновлена</th><th>Статус</th><th></th>
+        <th>{{ _('Имя') }}</th><th>{{ _('Нод') }}</th><th class="hide-sm">{{ _('UA / заголовки') }}</th>
+        <th>{{ _('Обновлена') }}</th><th>{{ _('Статус') }}</th><th></th>
       </tr>
       {% for s in subs %}
       <tr class="{{ '' if s.enabled else 'off' }}">
         <td>
           <b>{{ s.name }}</b>
-          {% if not s.enabled %}<span class="pill">выкл</span>{% endif %}
-          {% for t in s.force_tags %}<span class="pill" title="Принудительный тег: ставится всем нодам подписки">{{ t }}</span>{% endfor %}
+          {% if not s.enabled %}<span class="pill">{{ _('выкл') }}</span>{% endif %}
+          {% for t in s.force_tags %}<span class="pill" title="{{ _('Принудительный тег: ставится всем нодам подписки') }}">{{ t }}</span>{% endfor %}
           <div class="muted mono" style="word-break:break-all">{{ s.url[:60] }}…</div>
         </td>
         <td>{{ s.last_node_count }}</td>
@@ -58,66 +58,66 @@
         <td class="muted">
           {{ s.last_ok_at.strftime('%d.%m %H:%M') if s.last_ok_at else '—' }}
           {% if s.info_expire %}
-            <br><span class="muted" title="Дата окончания подписки у провайдера">до {{ expire_date(s.info_expire).strftime('%d.%m.%Y') }}</span>
+            <br><span class="muted" title="{{ _('Дата окончания подписки у провайдера') }}">{{ _('до {date}').format(date=expire_date(s.info_expire).strftime('%d.%m.%Y')) }}</span>
           {% endif %}
         </td>
         <td>
-          {% if s.last_error %}<span class="bad">{{ s.last_error[:70] }}</span>
-          {% else %}<span class="ok">ок</span>{% endif %}
+          {% if s.last_error %}<span class="bad">{{ _(s.last_error)[:70] }}</span>
+          {% else %}<span class="ok">{{ _('ок') }}</span>{% endif %}
         </td>
         <td class="row">
           <form class="inline" method="post" action="/subs/{{ s.id }}/refresh">
-            <button class="sm" title="Скачать эту подписку заново прямо сейчас">↻ Обновить</button></form>
+            <button class="sm" title="{{ _('Скачать эту подписку заново прямо сейчас') }}">↻ {{ _('Обновить') }}</button></form>
           <form class="inline" method="post" action="/subs/{{ s.id }}/toggle">
             {% if s.enabled %}
-            <button class="sm" title="Перестать обновлять подписку. Уже скачанные ноды останутся">⏸ Выключить</button>
+            <button class="sm" title="{{ _('Перестать обновлять подписку. Уже скачанные ноды останутся') }}">⏸ {{ _('Выключить') }}</button>
             {% else %}
-            <button class="sm" title="Снова обновлять подписку по расписанию">▶ Включить</button>
+            <button class="sm" title="{{ _('Снова обновлять подписку по расписанию') }}">▶ {{ _('Включить') }}</button>
             {% endif %}
           </form>
           <form class="inline" method="post" action="/subs/{{ s.id }}/delete"
-                onsubmit="return confirm('Удалить подписку {{ s.name }} и её ноды?')">
-            <button class="sm danger" title="Удалить подписку вместе со всеми её нодами">✕ Удалить</button></form>
+                onsubmit='return confirm({{ _("Удалить подписку «{name}» и её ноды?").format(name=s.name)|tojson }})'>
+            <button class="sm danger" title="{{ _('Удалить подписку вместе со всеми её нодами') }}">✕ {{ _('Удалить') }}</button></form>
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="muted">Пока пусто</td></tr>
+      <tr><td colspan="6" class="muted">{{ _('Пока пусто') }}</td></tr>
       {% endfor %}
     </table>
 
     <details style="margin-top:12px">
-      <summary>Добавить подписку</summary>
+      <summary>{{ _('Добавить подписку') }}</summary>
       <form method="post" action="/subs" style="margin-top:10px">
         <div class="grid">
-          <label>Имя<input name="name" required placeholder="fastcon"></label>
+          <label>{{ _('Имя') }}<input name="name" required placeholder="fastcon"></label>
           <label>User-Agent<input name="user_agent" value="v2rayN/9.99"
-                 title="Каким клиентом представляться провайдеру"></label>
-          <label>Принудительные теги<input name="force_tags" placeholder="WL"
-                 title="Через запятую. Добавятся ко всем нодам подписки"></label>
+                 title="{{ _('Каким клиентом представляться провайдеру') }}"></label>
+          <label>{{ _('Принудительные теги') }}<input name="force_tags" placeholder="WL"
+                 title="{{ _('Через запятую. Добавятся ко всем нодам подписки') }}"></label>
         </div>
         <label style="display:block;margin-top:8px">URL
           <input name="url" required placeholder="https://sub.example.com/xxxx"></label>
-        <label style="display:block;margin-top:8px">Заголовки, JSON
+        <label style="display:block;margin-top:8px">{{ _('Заголовки, JSON') }}
           <textarea name="headers_json" placeholder='{"x-device-os":"OpenWrt","x-ver-os":"24.10.3","x-device-model":"Huasifei WH3000 Pro","x-hwid":"..."}'></textarea>
         </label>
-        <button class="primary" style="margin-top:8px">Добавить</button>
+        <button class="primary" style="margin-top:8px">{{ _('Добавить') }}</button>
       </form>
     </details>
   </div>
 
   <!-- ------------------------------------------------------------------ -->
   <div class="card">
-    <h2>Свои ноды</h2>
+    <h2>{{ _('Свои ноды') }}</h2>
     <details>
-      <summary>Добавить: ссылки, clash YAML или xray outbound JSON</summary>
+      <summary>{{ _('Добавить: ссылки, clash YAML или xray outbound JSON') }}</summary>
       <form method="post" action="/own" style="margin-top:10px">
-        <textarea name="payload" required placeholder="vless://uuid@host:443?security=reality&...#Мой сервер
-или
+        <textarea name="payload" required placeholder="vless://uuid@host:443?security=reality&...#My server
+
 {&quot;protocol&quot;:&quot;vless&quot;,&quot;settings&quot;:{...},&quot;streamSettings&quot;:{...}}"></textarea>
         <div class="row" style="margin-top:8px">
-          <label style="max-width:220px">Теги<input name="force_tags" placeholder="MY"
-                 title="Через запятую. Тег MY ставится своим нодам всегда"></label>
-          <button class="primary">Добавить</button>
+          <label style="max-width:220px">{{ _('Теги') }}<input name="force_tags" placeholder="MY"
+                 title="{{ _('Через запятую. Тег MY ставится своим нодам всегда') }}"></label>
+          <button class="primary">{{ _('Добавить') }}</button>
         </div>
       </form>
     </details>
@@ -125,128 +125,145 @@
 
   <!-- ------------------------------------------------------------------ -->
   <div class="card">
-    <h2>Цели проверки</h2>
+    <h2>{{ _('Цели проверки') }}</h2>
     <table>
-      <tr><th>Имя</th><th>URL</th><th>Код</th><th>Обязательная</th><th></th></tr>
+      <tr><th>{{ _('Имя') }}</th><th>URL</th><th>{{ _('Код') }}</th><th>{{ _('Обязательная') }}</th><th></th></tr>
       {% for t in targets %}
       <tr class="{{ '' if t.enabled else 'off' }}">
-        <td>{{ t.name }}{% if not t.enabled %} <span class="pill">выкл</span>{% endif %}</td>
+        <td>{{ t.name }}{% if not t.enabled %} <span class="pill">{{ _('выкл') }}</span>{% endif %}</td>
         <td class="mono muted">{{ t.url }}</td>
         <td>{{ t.expected_status }}</td>
-        <td>{{ 'да' if t.required else 'нет' }}</td>
+        <td>{{ _('да') if t.required else _('нет') }}</td>
         <td class="row">
+          <button type="button" class="sm" onclick="toggleEdit('target-edit-{{ t.id }}')"
+                  title="{{ _('Поменять имя, адрес, код ответа или таймаут цели') }}">✎ {{ _('Изменить') }}</button>
           <form class="inline" method="post" action="/targets/{{ t.id }}/toggle">
             {% if t.enabled %}
-            <button class="sm" title="Не использовать эту цель при проверке нод">⏸ Выключить</button>
+            <button class="sm" title="{{ _('Не использовать эту цель при проверке нод') }}">⏸ {{ _('Выключить') }}</button>
             {% else %}
-            <button class="sm" title="Снова проверять ноды на этой цели">▶ Включить</button>
+            <button class="sm" title="{{ _('Снова проверять ноды на этой цели') }}">▶ {{ _('Включить') }}</button>
             {% endif %}
           </form>
           <form class="inline" method="post" action="/targets/{{ t.id }}/delete"
-                onsubmit="return confirm('Удалить цель {{ t.name }}?')">
-            <button class="sm danger" title="Удалить цель проверки">✕ Удалить</button></form>
+                onsubmit='return confirm({{ _("Удалить цель «{name}»?").format(name=t.name)|tojson }})'>
+            <button class="sm danger" title="{{ _('Удалить цель проверки') }}">✕ {{ _('Удалить') }}</button></form>
+        </td>
+      </tr>
+      <tr id="target-edit-{{ t.id }}" hidden>
+        <td colspan="5">
+          <form method="post" action="/targets/{{ t.id }}">
+            <div class="grid">
+              <label>{{ _('Имя') }}<input name="name" required value="{{ t.name }}"></label>
+              <label>URL<input name="url" required value="{{ t.url }}"></label>
+              <label>{{ _('Ожидаемый код') }}<input name="expected_status" type="number" value="{{ t.expected_status }}"></label>
+              <label>{{ _('Таймаут, мс') }}<input name="timeout_ms" type="number" min="500" step="500" value="{{ t.timeout_ms }}"></label>
+              <label class="chk" style="align-self:end" title="{{ _('Если эта цель не прошла, нода считается мертвой') }}">
+                <input type="checkbox" name="required" value="true" {{ 'checked' if t.required }}> {{ _('обязательная') }}</label>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="primary">{{ _('Сохранить') }}</button>
+              <button type="button" onclick="toggleEdit('target-edit-{{ t.id }}')">{{ _('Отмена') }}</button>
+            </div>
+          </form>
         </td>
       </tr>
       {% endfor %}
     </table>
     <details style="margin-top:12px">
-      <summary>Добавить цель</summary>
+      <summary>{{ _('Добавить цель') }}</summary>
       <form method="post" action="/targets" style="margin-top:10px">
         <div class="grid">
-          <label>Имя<input name="name" required placeholder="home"></label>
+          <label>{{ _('Имя') }}<input name="name" required placeholder="home"></label>
           <label>URL<input name="url" required placeholder="https://home.example.com/ping"></label>
-          <label>Ожидаемый код<input name="expected_status" type="number" value="204"></label>
+          <label>{{ _('Ожидаемый код') }}<input name="expected_status" type="number" value="204"></label>
           <label class="chk" style="align-self:end"
-                 title="Если эта цель не прошла, нода считается мертвой">
-            <input type="checkbox" name="required" value="true"> обязательная</label>
+                 title="{{ _('Если эта цель не прошла, нода считается мертвой') }}">
+            <input type="checkbox" name="required" value="true"> {{ _('обязательная') }}</label>
         </div>
-        <button class="primary" style="margin-top:8px">Добавить</button>
+        <button class="primary" style="margin-top:8px">{{ _('Добавить') }}</button>
       </form>
     </details>
     <p class="muted" style="margin-bottom:0">
-      Нода считается живой, если прошли все обязательные цели и хотя бы одна любая.
-      Мертвой становится после {{ settings.dead_after_fails }} неудачных прогонов подряд.
+      {{ _('Нода считается живой, если прошли все обязательные цели и хотя бы одна любая. Мертвой становится после {n} неудачных прогонов подряд.').format(n=settings.dead_after_fails) }}
     </p>
   </div>
 
   <!-- ------------------------------------------------------------------ -->
   <div class="card">
-    <h2>Токены выдачи</h2>
-    <p class="hint" style="margin:0 0 8px">Один токен на человека или устройство. «Настроить» открывает
-      страницу токена: там видно, какие серверы он получает, и их можно выключать по одному.</p>
+    <h2>{{ _('Токены выдачи') }}</h2>
+    <p class="hint" style="margin:0 0 8px">{{ _('Один токен на человека или устройство. «Настроить» открывает страницу токена: там видно, какие серверы он получает, и их можно выключать по одному.') }}</p>
     <table>
-      <tr><th>Имя</th><th>Ссылка</th><th>Формат</th><th class="hide-sm">Фильтры</th>
-          <th>Использован</th><th></th></tr>
+      <tr><th>{{ _('Имя') }}</th><th>{{ _('Ссылка') }}</th><th>{{ _('Формат') }}</th><th class="hide-sm">{{ _('Фильтры') }}</th>
+          <th>{{ _('Использован') }}</th><th></th></tr>
       {% for t in tokens %}
       <tr class="{{ '' if t.enabled else 'off' }}">
         <td>
           <a href="/tokens/{{ t.id }}">{{ t.name }}</a>
-          {% if not t.enabled %}<br><span class="pill">приостановлен</span>{% endif %}
-          {% if t.excluded_nodes %}<br><span class="pill" title="Столько нод выключено вручную на странице токена">−{{ t.excluded_nodes|length }} вручную</span>{% endif %}
+          {% if not t.enabled %}<br><span class="pill">{{ _('приостановлен') }}</span>{% endif %}
+          {% if t.excluded_nodes %}<br><span class="pill" title="{{ _('Столько нод выключено вручную на странице токена') }}">{{ _('−{n} вручную').format(n=t.excluded_nodes|length) }}</span>{% endif %}
         </td>
         <td class="mono" style="word-break:break-all">
           {{ base_url }}/sub/{{ t.token }}
           <div><button type="button" class="sm" style="margin-top:4px"
-                       title="Скопировать ссылку, чтобы отправить человеку"
-                       onclick='copyText({{ (base_url ~ "/sub/" ~ t.token)|tojson }}, this)'>⧉ Копировать</button></div>
+                       title="{{ _('Скопировать ссылку, чтобы отправить человеку') }}"
+                       onclick='copyText({{ (base_url ~ "/sub/" ~ t.token)|tojson }}, this)'>⧉ {{ _('Копировать') }}</button></div>
         </td>
-        <td>{{ t.fmt }}{% if t.only_alive %}<br><span class="pill" title="Мертвые ноды в выдачу не попадают">только живые</span>{% endif %}</td>
+        <td>{{ t.fmt }}{% if t.only_alive %}<br><span class="pill" title="{{ _('Мертвые ноды в выдачу не попадают') }}">{{ _('только живые') }}</span>{% endif %}</td>
         <td class="hide-sm mono muted">
           {% if t.include_regex %}+{{ t.include_regex }}<br>{% endif %}
           {% if t.exclude_regex %}−{{ t.exclude_regex }}{% endif %}
         </td>
         <td class="muted">
           {{ t.last_used_at.strftime('%d.%m %H:%M') if t.last_used_at else '—' }}
-          <br>{{ t.use_count }} раз
+          <br>{{ _('{n} раз').format(n=t.use_count) }}
         </td>
         <td class="row">
           <form class="inline" method="get" action="/tokens/{{ t.id }}">
-            <button class="sm" title="Какие серверы получает этот токен, включить и выключить отдельные, поменять фильтры">⚙ Настроить</button></form>
+            <button class="sm" title="{{ _('Какие серверы получает этот токен, включить и выключить отдельные, поменять фильтры') }}">⚙ {{ _('Настроить') }}</button></form>
           <form class="inline" method="post" action="/tokens/{{ t.id }}/delete"
-                onsubmit="return confirm('Удалить токен {{ t.name }}? Ссылка перестанет работать.')">
-            <button class="sm danger" title="Удалить токен. Ссылка у человека перестанет работать">✕ Удалить</button></form>
+                onsubmit='return confirm({{ _("Удалить токен «{name}»? Ссылка перестанет работать.").format(name=t.name)|tojson }})'>
+            <button class="sm danger" title="{{ _('Удалить токен. Ссылка у человека перестанет работать') }}">✕ {{ _('Удалить') }}</button></form>
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="muted">Токенов нет, устройства ничего не получат</td></tr>
+      <tr><td colspan="6" class="muted">{{ _('Токенов нет, устройства ничего не получат') }}</td></tr>
       {% endfor %}
     </table>
     <details style="margin-top:12px">
-      <summary>Создать токен</summary>
+      <summary>{{ _('Создать токен') }}</summary>
       <form method="post" action="/tokens" style="margin-top:10px">
         <div class="grid">
-          <label>Имя<input name="name" required placeholder="router-fudy"></label>
-          <label>Формат
-            <select name="fmt" title="clash YAML для mihomo/Clash/Nikki, base64 для v2rayN, Hiddify, Streisand и т.п.">
+          <label>{{ _('Имя') }}<input name="name" required placeholder="router-fudy"></label>
+          <label>{{ _('Формат') }}
+            <select name="fmt" title="{{ _('clash YAML для mihomo/Clash/Nikki, base64 для v2rayN, Hiddify, Happ, Streisand и т.п.') }}">
               <option value="clash">clash YAML</option>
               <option value="base64">base64</option>
-              <option value="uri">список ссылок</option>
+              <option value="uri">{{ _('список ссылок') }}</option>
             </select></label>
           <label>Include regex<input name="include_regex" placeholder="^\[RU\]"
-                 title="Отдавать только ноды, чье имя подходит под выражение. Пусто - все"></label>
+                 title="{{ _('Отдавать только ноды, чье имя подходит под выражение. Пусто - все') }}"></label>
           <label>Exclude regex<input name="exclude_regex" placeholder="\[GAME\]"
-                 title="Не отдавать ноды, чье имя подходит под выражение"></label>
-          <label class="chk" style="align-self:end" title="Мертвые ноды в выдачу не попадают">
-            <input type="checkbox" name="only_alive" value="true" checked> только живые</label>
+                 title="{{ _('Не отдавать ноды, чье имя подходит под выражение') }}"></label>
+          <label class="chk" style="align-self:end" title="{{ _('Мертвые ноды в выдачу не попадают') }}">
+            <input type="checkbox" name="only_alive" value="true" checked> {{ _('только живые') }}</label>
         </div>
-        <label style="display:block;margin-top:8px">Токен или старая ссылка
-          <input name="token_value" class="mono" placeholder="пусто - сгенерируется случайный"
-                 title="Чтобы восстановить выданную раньше ссылку, вставь ее целиком или только часть после /sub/"></label>
-        <p class="hint">Заполняй только при восстановлении: вставь старую ссылку, и у людей все заработает без перенастройки.</p>
-        <button class="primary" style="margin-top:8px">Создать</button>
+        <label style="display:block;margin-top:8px">{{ _('Токен или старая ссылка') }}
+          <input name="token_value" class="mono" placeholder="{{ _('пусто - сгенерируется случайный') }}"
+                 title="{{ _('Чтобы восстановить выданную раньше ссылку, вставь ее целиком или только часть после /sub/') }}"></label>
+        <p class="hint">{{ _('Заполняй только при восстановлении: вставь старую ссылку, и у людей все заработает без перенастройки.') }}</p>
+        <button class="primary" style="margin-top:8px">{{ _('Создать') }}</button>
       </form>
     </details>
   </div>
 
   <!-- ------------------------------------------------------------------ -->
   <div class="card">
-    <h2>Ноды ({{ stats.nodes }})</h2>
-    <p class="hint" style="margin:0 0 8px">«Выключить» убирает ноду из выдачи всех токенов.
-      Чтобы убрать ее только у одного человека, используй страницу токена.</p>
+    <h2>{{ _('Ноды') }} ({{ stats.nodes }})</h2>
+    <p class="hint" style="margin:0 0 8px">{{ _('«Выключить» убирает ноду из выдачи всех токенов. Чтобы убрать ее только у одного человека, используй страницу токена.') }}</p>
     <div class="scroll">
     <table>
-      <tr><th>Имя</th><th>Теги</th><th class="hide-sm">Сервер</th><th>Задержка</th>
-          <th>Статус</th><th></th></tr>
+      <tr><th>{{ _('Имя') }}</th><th>{{ _('Теги') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th>
+          <th>{{ _('Статус') }}</th><th></th></tr>
       {% for n in nodes %}
       <tr class="{{ '' if n.enabled else 'off' }}">
         <td>
@@ -255,35 +272,35 @@
         </td>
         <td>{% for t in n.tags %}<span class="pill">{{ t }}</span>{% endfor %}</td>
         <td class="hide-sm mono muted">{{ n.proto }} {{ n.server }}:{{ n.port }}</td>
-        <td>{{ n.last_latency_ms ~ ' мс' if n.last_latency_ms else '—' }}</td>
+        <td>{{ _('{n} мс').format(n=n.last_latency_ms) if n.last_latency_ms else '—' }}</td>
         <td>
-          {% if not n.enabled %}<span class="muted">выключена</span>
-          {% elif n.alive %}<span class="ok">жива</span>
-          {% else %}<span class="bad">мертва</span>{% endif %}
-          {% if n.pinned_alive %}<span class="pill" title="Отдается всегда, даже если проверка говорит, что мертва">всегда</span>{% endif %}
+          {% if not n.enabled %}<span class="muted">{{ _('выключена') }}</span>
+          {% elif n.alive %}<span class="ok">{{ _('жива') }}</span>
+          {% else %}<span class="bad">{{ _('мертва') }}</span>{% endif %}
+          {% if n.pinned_alive %}<span class="pill" title="{{ _('Отдается всегда, даже если проверка говорит, что мертва') }}">{{ _('всегда') }}</span>{% endif %}
           {% if fails.get(n.id) %}
-            <div class="muted" style="font-size:11px">не прошла: {{ fails[n.id]|join(', ') }}</div>
+            <div class="muted" style="font-size:11px">{{ _('не прошла:') }} {{ fails[n.id]|join(', ') }}</div>
           {% endif %}
         </td>
         <td class="row">
           <form class="inline" method="post" action="/nodes/{{ n.id }}/toggle">
             {% if n.enabled %}
-            <button class="sm" title="Убрать ноду из выдачи всех токенов и не проверять ее">⏸ Выключить</button>
+            <button class="sm" title="{{ _('Убрать ноду из выдачи всех токенов и не проверять ее') }}">⏸ {{ _('Выключить') }}</button>
             {% else %}
-            <button class="sm" title="Вернуть ноду в выдачу">▶ Включить</button>
+            <button class="sm" title="{{ _('Вернуть ноду в выдачу') }}">▶ {{ _('Включить') }}</button>
             {% endif %}
           </form>
           <form class="inline" method="post" action="/nodes/{{ n.id }}/pin">
             {% if n.pinned_alive %}
-            <button class="sm" title="Снова учитывать проверку: мертвая нода пропадет из выдачи токенов «только живые»">📌 Открепить</button>
+            <button class="sm" title="{{ _('Снова учитывать проверку: мертвая нода пропадет из выдачи токенов «только живые»') }}">📌 {{ _('Открепить') }}</button>
             {% else %}
-            <button class="sm" title="Отдавать ноду всегда, даже если проверка считает ее мертвой. Полезно для whitelist-нод, которые отсюда не проверить">📌 Всегда отдавать</button>
+            <button class="sm" title="{{ _('Отдавать ноду всегда, даже если проверка считает ее мертвой. Полезно для whitelist-нод, которые отсюда не проверить') }}">📌 {{ _('Всегда отдавать') }}</button>
             {% endif %}
           </form>
           {% if n.source == 'own' %}
           <form class="inline" method="post" action="/nodes/{{ n.id }}/delete"
-                onsubmit="return confirm('Удалить свою ноду {{ n.display_name }}?')">
-            <button class="sm danger" title="Удалить свою ноду насовсем">✕ Удалить</button></form>
+                onsubmit='return confirm({{ _("Удалить свою ноду «{name}»?").format(name=n.display_name)|tojson }})'>
+            <button class="sm danger" title="{{ _('Удалить свою ноду насовсем') }}">✕ {{ _('Удалить') }}</button></form>
           {% endif %}
         </td>
       </tr>
@@ -296,6 +313,11 @@
 
 {% block scripts %}
 <script>
+function toggleEdit(id) {
+  const row = document.getElementById(id);
+  row.hidden = !row.hidden;
+}
+
 // Пока идет фоновая операция, раз в 3 секунды спрашиваем статус
 // и перезагружаем страницу, когда все закончилось
 if (document.querySelector(".job-running")) {

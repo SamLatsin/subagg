@@ -14,8 +14,11 @@ from .uri import node_to_uri
 
 
 def _order(n: Node):
-    # Сначала свои, потом по стране и задержке - стабильный порядок в выдаче
+    # Сначала WL: клиенты вроде Happ пингуют ноды сверху вниз, и на мобильной
+    # сети с белыми списками рабочие должны найтись первыми. Потом свои,
+    # дальше по стране и задержке - стабильный порядок в выдаче
     return (
+        0 if "WL" in (n.tags or []) else 1,
         0 if n.source == "own" else 1,
         n.country or "ZZ",
         n.last_latency_ms if n.last_latency_ms is not None else 99999,

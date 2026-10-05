@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -57,18 +57,25 @@
   .banner.bad { border-color:var(--bad); color:var(--bad); }
   .hint { color:var(--muted); font-size:12px; margin:6px 0 0; }
   tr.off td { opacity:.55; }
+  .lang { float:right; font-size:12px; }
+  .lang a { text-decoration:none; padding:2px 6px; border-radius:6px; }
+  .lang a.cur { color:var(--text); border:1px solid var(--line); }
   @media (max-width:640px) { body { padding:10px; } .hide-sm { display:none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
+<div class="lang" title="Язык / Language">
+  <a href="/lang/ru" class="{{ 'cur' if lang == 'ru' }}">RU</a>
+  <a href="/lang/en" class="{{ 'cur' if lang == 'en' }}">EN</a>
+</div>
 {% block content %}{% endblock %}
 </div>
 <script>
 // Копирование ссылки. navigator.clipboard работает только по HTTPS,
 // по голому HTTP в локалке откатываемся на старый execCommand
 function copyText(text, btn) {
-  const done = () => { const old = btn.textContent; btn.textContent = "Скопировано";
+  const done = () => { const old = btn.textContent; btn.textContent = {{ _('Скопировано')|tojson }};
                        setTimeout(() => btn.textContent = old, 1500); };
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text).then(done);

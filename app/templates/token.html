@@ -2,99 +2,99 @@
 {% block title %}{{ t.name }} · subagg{% endblock %}
 {% block content %}
 
-  <p style="margin:0 0 8px"><a href="/">← к админке</a></p>
-  <h1>Токен «{{ t.name }}»
-    {% if not t.enabled %}<span class="pill">приостановлен</span>{% endif %}</h1>
+  <p style="margin:0 0 8px"><a href="/">← {{ _('к админке') }}</a></p>
+  <h1>{{ _('Токен «{name}»').format(name=t.name) }}
+    {% if not t.enabled %}<span class="pill">{{ _('приостановлен') }}</span>{% endif %}</h1>
   <p class="muted" style="margin-top:0">
-    Сейчас отдает <b>{{ given }}</b> из {{ rows|length }} нод.
-    Последний запрос: {{ t.last_used_at.strftime('%d.%m %H:%M') if t.last_used_at else 'не было' }}
-    {% if t.last_used_ip %}с {{ t.last_used_ip }}{% endif %}, всего {{ t.use_count }} раз.
+    {{ _('Сейчас отдает {given} из {total} нод.').format(given=given, total=rows|length) }}
+    {% if t.last_used_at %}
+      {{ _('Последний запрос: {when}').format(when=t.last_used_at.strftime('%d.%m %H:%M')) }}{% if t.last_used_ip %} {{ _('с {ip}').format(ip=t.last_used_ip) }}{% endif %},
+      {{ _('всего {n} раз.').format(n=t.use_count) }}
+    {% else %}
+      {{ _('Запросов еще не было.') }}
+    {% endif %}
   </p>
 
   <div class="card">
-    <h2>Ссылка</h2>
+    <h2>{{ _('Ссылка') }}</h2>
     <div class="mono" style="word-break:break-all">{{ base_url }}/sub/{{ t.token }}</div>
     <div class="row" style="margin-top:8px">
-      <button type="button" title="Скопировать ссылку, чтобы отправить человеку"
-              onclick='copyText({{ (base_url ~ "/sub/" ~ t.token)|tojson }}, this)'>⧉ Копировать</button>
+      <button type="button" title="{{ _('Скопировать ссылку, чтобы отправить человеку') }}"
+              onclick='copyText({{ (base_url ~ "/sub/" ~ t.token)|tojson }}, this)'>⧉ {{ _('Копировать') }}</button>
       <form class="inline" method="post" action="/tokens/{{ t.id }}/toggle">
         {% if t.enabled %}
-        <button title="Ссылка начнет отвечать 404. Настройки сохранятся, можно включить обратно">⏸ Приостановить</button>
+        <button title="{{ _('Ссылка начнет отвечать 404. Настройки сохранятся, можно включить обратно') }}">⏸ {{ _('Приостановить') }}</button>
         {% else %}
-        <button class="primary" title="Ссылка снова заработает">▶ Возобновить</button>
+        <button class="primary" title="{{ _('Ссылка снова заработает') }}">▶ {{ _('Возобновить') }}</button>
         {% endif %}
       </form>
     </div>
-    <p class="hint">Изменения на этой странице ссылку не меняют. Устройство получит новый список
-      при следующем обновлении подписки у себя (или сразу, если обновить вручную).</p>
+    <p class="hint">{{ _('Изменения на этой странице ссылку не меняют. Устройство получит новый список при следующем обновлении подписки у себя (или сразу, если обновить вручную).') }}</p>
   </div>
 
   <div class="card">
-    <h2>Настройки</h2>
+    <h2>{{ _('Настройки') }}</h2>
     <form method="post" action="/tokens/{{ t.id }}">
       <div class="grid">
-        <label>Имя<input name="name" required value="{{ t.name }}"></label>
-        <label>Формат
-          <select name="fmt" title="clash YAML для mihomo/Clash/Nikki, base64 для v2rayN, Hiddify, Streisand и т.п.">
-            {% for v, label in [('clash', 'clash YAML'), ('base64', 'base64'), ('uri', 'список ссылок')] %}
+        <label>{{ _('Имя') }}<input name="name" required value="{{ t.name }}"></label>
+        <label>{{ _('Формат') }}
+          <select name="fmt" title="{{ _('clash YAML для mihomo/Clash/Nikki, base64 для v2rayN, Hiddify, Happ, Streisand и т.п.') }}">
+            {% for v, label in [('clash', 'clash YAML'), ('base64', 'base64'), ('uri', _('список ссылок'))] %}
             <option value="{{ v }}" {{ 'selected' if t.fmt == v }}>{{ label }}</option>
             {% endfor %}
           </select></label>
         <label>Include regex<input name="include_regex" value="{{ t.include_regex or '' }}" placeholder="^\[RU\]"
-               title="Отдавать только ноды, чье имя подходит под выражение. Пусто - все"></label>
+               title="{{ _('Отдавать только ноды, чье имя подходит под выражение. Пусто - все') }}"></label>
         <label>Exclude regex<input name="exclude_regex" value="{{ t.exclude_regex or '' }}" placeholder="\[GAME\]"
-               title="Не отдавать ноды, чье имя подходит под выражение"></label>
-        <label class="chk" style="align-self:end" title="Мертвые ноды в выдачу не попадают">
-          <input type="checkbox" name="only_alive" value="true" {{ 'checked' if t.only_alive }}> только живые</label>
+               title="{{ _('Не отдавать ноды, чье имя подходит под выражение') }}"></label>
+        <label class="chk" style="align-self:end" title="{{ _('Мертвые ноды в выдачу не попадают') }}">
+          <input type="checkbox" name="only_alive" value="true" {{ 'checked' if t.only_alive }}> {{ _('только живые') }}</label>
       </div>
-      <label style="display:block;margin-top:8px">Токен в ссылке
+      <label style="display:block;margin-top:8px">{{ _('Токен в ссылке') }}
         <input name="token_value" class="mono" value="{{ t.token }}"
-               title="Часть ссылки после /sub/. Можно вставить ссылку целиком"></label>
-      <p class="hint">Если поменять токен, старая ссылка перестанет работать у всех, кому ее раздали.
-        Меняй, только чтобы восстановить прежнюю ссылку после потери базы.</p>
-      <button class="primary" style="margin-top:8px">Сохранить настройки</button>
+               title="{{ _('Часть ссылки после /sub/. Можно вставить ссылку целиком') }}"></label>
+      <p class="hint">{{ _('Если поменять токен, старая ссылка перестанет работать у всех, кому ее раздали. Меняй, только чтобы восстановить прежнюю ссылку после потери базы.') }}</p>
+      <button class="primary" style="margin-top:8px">{{ _('Сохранить настройки') }}</button>
     </form>
   </div>
 
   <div class="card">
-    <h2>Серверы</h2>
-    <p class="hint" style="margin:0 0 8px">Снятая галочка выключает ноду только для этого токена.
-      Новые ноды из подписок включаются сами. Серые строки не уходят в выдачу по другой причине,
-      она написана справа.</p>
+    <h2>{{ _('Серверы') }}</h2>
+    <p class="hint" style="margin:0 0 8px">{{ _('Порядок как в выдаче: сначала WL, потом свои, дальше по стране и задержке. Снятая галочка выключает ноду только для этого токена. Новые ноды из подписок включаются сами. Серые строки не уходят в выдачу по другой причине, она написана справа.') }}</p>
     <form method="post" action="/tokens/{{ t.id }}/nodes">
       <div class="row" style="margin-bottom:8px">
-        <button type="button" class="sm" onclick="setAll(true)" title="Поставить все галочки">Отметить все</button>
-        <button type="button" class="sm" onclick="setAll(false)" title="Снять все галочки">Снять все</button>
-        <input id="flt" placeholder="поиск по имени" style="max-width:240px"
-               title="Фильтрует список на странице. «Отметить все» и «Снять все» действуют только на видимые строки">
-        <button class="primary" title="Применить галочки">Сохранить выбор</button>
+        <button type="button" class="sm" onclick="setAll(true)" title="{{ _('Поставить все галочки') }}">{{ _('Отметить все') }}</button>
+        <button type="button" class="sm" onclick="setAll(false)" title="{{ _('Снять все галочки') }}">{{ _('Снять все') }}</button>
+        <input id="flt" placeholder="{{ _('поиск по имени') }}" style="max-width:240px"
+               title="{{ _('Фильтрует список на странице. «Отметить все» и «Снять все» действуют только на видимые строки') }}">
+        <button class="primary" title="{{ _('Применить галочки') }}">{{ _('Сохранить выбор') }}</button>
       </div>
       <div class="scroll">
       <table>
-        <tr><th></th><th>Имя</th><th class="hide-sm">Сервер</th><th>Задержка</th><th>В выдаче</th></tr>
+        <tr><th></th><th>{{ _('Имя') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th><th>{{ _('В выдаче') }}</th></tr>
         {% for n, reason in rows %}
         <tr class="node-row {{ 'off' if reason }}" data-name="{{ (n.display_name ~ ' ' ~ n.original_name)|lower }}">
           <td>
             <input type="hidden" name="shown" value="{{ n.id }}">
             <input type="checkbox" name="node" value="{{ n.id }}" style="width:auto"
                    {{ 'checked' if n.id not in excluded }}
-                   title="Отдавать эту ноду по этому токену">
+                   title="{{ _('Отдавать эту ноду по этому токену') }}">
           </td>
           <td>
             {{ n.display_name }}
             <div class="muted" style="font-size:11px">{{ n.original_name }}</div>
           </td>
           <td class="hide-sm mono muted">{{ n.server }}:{{ n.port }}</td>
-          <td>{{ n.last_latency_ms ~ ' мс' if n.last_latency_ms else '—' }}</td>
+          <td>{{ _('{n} мс').format(n=n.last_latency_ms) if n.last_latency_ms else '—' }}</td>
           <td>
-            {% if reason %}<span class="muted">нет: {{ reason }}</span>
-            {% else %}<span class="ok">да</span>{% endif %}
+            {% if reason %}<span class="muted">{{ _('нет:') }} {{ _(reason) }}</span>
+            {% else %}<span class="ok">{{ _('да') }}</span>{% endif %}
           </td>
         </tr>
         {% endfor %}
       </table>
       </div>
-      <button class="primary" style="margin-top:8px">Сохранить выбор</button>
+      <button class="primary" style="margin-top:8px">{{ _('Сохранить выбор') }}</button>
     </form>
   </div>
 
