@@ -182,6 +182,20 @@ EN: dict[str, str] = {
         "that cannot be checked from here",
     "Всегда отдавать": "Always serve",
     "Пинг": "Ping",
+    "Порт сервера не отвечает даже напрямую, без прокси. Пинг в клиентах тоже не пройдет":
+        "The server port does not answer even directly, without the proxy. Client pings will fail too",
+    "порт закрыт: сервер лежит или его IP заблокирован": "port closed: the server is down or its IP is blocked",
+    "Клиенты покажут пинг, потому что порт открыт, но трафик не пойдет":
+        "Clients will show a ping because the port is open, but traffic will not flow",
+    "порт открыт, но интернета через прокси нет: отозван доступ, неверный ключ или блокировка протокола":
+        "port open, but no internet through the proxy: access revoked, wrong key or protocol blocked",
+    "Входные серверы с мертвыми нодами: {n}": "Entry servers with dead nodes: {n}",
+    "Одна точка входа часто ведет в десятки стран. Если на адресе умерло все, проблема у провайдера: сервер лежит или заблокирован.":
+        "One entry point often leads to dozens of countries. If everything on an address is dead, the problem is on the provider side: the server is down or blocked.",
+    "Живых": "Alive",
+    "Порт": "Port",
+    "закрыт": "closed",
+    "открыт": "open",
     "Источник": "Source",
     "свои": "own",
     "выход": "exit",

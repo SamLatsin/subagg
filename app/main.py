@@ -188,6 +188,19 @@ async def index(
 
     fails = await _failed_targets(session)
 
+    # Входные серверы, где есть мертвые ноды. Если умерло все на одном
+    # адресе, лег сервер провайдера, а не отдельные ноды
+    entries: dict[str, dict] = {}
+    for n in nodes:
+        if not n.enabled or n.last_check_at is None:
+            continue
+        e = entries.setdefault(n.server, {"server": n.server, "alive": 0, "total": 0, "tcp_closed": False})
+        e["total"] += 1
+        e["alive"] += 1 if n.alive else 0
+        e["tcp_closed"] = e["tcp_closed"] or n.tcp_ok is False
+    sick_entries = sorted((e for e in entries.values() if e["alive"] < e["total"]),
+                          key=lambda e: (e["alive"] / e["total"], -e["total"]))
+
     stats = {
         "nodes": len(nodes),
         "alive": sum(1 for n in nodes if n.alive),
@@ -206,6 +219,7 @@ async def index(
             "tokens": tokens,
             "stats": stats,
             "fails": fails,
+            "sick_entries": sick_entries,
             "sources": {s.id: s.name for s in subs},
             "settings": settings,
             "expire_date": expire_date,

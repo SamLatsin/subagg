@@ -83,6 +83,10 @@ class Node(Base):
     exit_ip: Mapped[str | None] = mapped_column(String(64))
     exit_country: Mapped[str | None] = mapped_column(String(8))
     exit_checked_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    # Открыт ли порт сервера напрямую, без прокси. Отличает «сервер лежит или
+    # заблокирован» от «порт открыт, но прокси не пускает». None - не проверяли
+    # (UDP-протоколы) или проверки еще не было
+    tcp_ok: Mapped[bool | None] = mapped_column(Boolean)
     last_seen_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

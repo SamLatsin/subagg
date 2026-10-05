@@ -5,6 +5,13 @@
           {% elif n.alive %}<span class="ok">{{ _('жива') }}</span>
           {% else %}<span class="bad">{{ _('мертва') }}</span>{% endif %}
           {% if n.pinned_alive %}<span class="pill" title="{{ _('Отдается всегда, даже если проверка говорит, что мертва') }}">{{ _('всегда') }}</span>{% endif %}
+          {% if n.last_check_at and (not n.alive or n.fail_streak) %}
+            {% if n.tcp_ok == false %}
+            <div class="bad" style="font-size:11px" title="{{ _('Порт сервера не отвечает даже напрямую, без прокси. Пинг в клиентах тоже не пройдет') }}">{{ _('порт закрыт: сервер лежит или его IP заблокирован') }}</div>
+            {% elif n.tcp_ok and n.last_latency_ms is none %}
+            <div class="bad" style="font-size:11px" title="{{ _('Клиенты покажут пинг, потому что порт открыт, но трафик не пойдет') }}">{{ _('порт открыт, но интернета через прокси нет: отозван доступ, неверный ключ или блокировка протокола') }}</div>
+            {% endif %}
+          {% endif %}
           {% if fails.get(n.id) %}
             <div class="muted" style="font-size:11px">{{ _('не прошла:') }} {{ fails[n.id]|join(', ') }}</div>
           {% endif %}

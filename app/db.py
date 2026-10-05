@@ -40,6 +40,7 @@ _NEW_COLUMNS = {
         "exit_ip": "VARCHAR(64)",
         "exit_country": "VARCHAR(8)",
         "exit_checked_at": "DATETIME",
+        "tcp_ok": "BOOLEAN",
     },
 }
 

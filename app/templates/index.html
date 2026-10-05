@@ -260,6 +260,22 @@
   <div class="card">
     <h2>{{ _('Ноды') }} ({{ stats.nodes }})</h2>
     <p class="hint" style="margin:0 0 8px">{{ _('«Выключить» убирает ноду из выдачи всех токенов. Чтобы убрать ее только у одного человека, используй страницу токена.') }}</p>
+    {% if sick_entries %}
+    <details style="margin-bottom:10px">
+      <summary>{{ _('Входные серверы с мертвыми нодами: {n}').format(n=sick_entries|length) }}</summary>
+      <p class="hint">{{ _('Одна точка входа часто ведет в десятки стран. Если на адресе умерло все, проблема у провайдера: сервер лежит или заблокирован.') }}</p>
+      <table>
+        <tr><th>{{ _('Сервер') }}</th><th>{{ _('Живых') }}</th><th>{{ _('Порт') }}</th></tr>
+        {% for e in sick_entries %}
+        <tr>
+          <td class="mono">{{ e.server }}</td>
+          <td class="{{ 'bad' if e.alive == 0 else 'warn' }}">{{ e.alive }} / {{ e.total }}</td>
+          <td>{% if e.tcp_closed %}<span class="bad">{{ _('закрыт') }}</span>{% else %}<span class="muted">{{ _('открыт') }}</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </details>
+    {% endif %}
     <div class="scroll">
     <table>
       <tr><th>{{ _('Имя') }}</th><th>{{ _('Источник') }}</th><th>{{ _('Теги') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th>

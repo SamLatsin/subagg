@@ -33,6 +33,9 @@ log = logging.getLogger(__name__)
 BAD_INDEX_RE = re.compile(r"proxy\s+(\d+)\s*:", re.IGNORECASE)
 BAD_NAME_RE = re.compile(r"\b(n\d+)\b")
 
+# Протоколы поверх UDP: TCP-проверка порта для них ничего не значит
+UDP_PROTOS = {"hysteria", "hysteria2", "hy2", "tuic", "wireguard"}
+
 # Сервисы, которые отвечают IP и страной того, кто пришел. Второй - запасной
 GEO_URLS = ("https://api.country.is/", "https://ipinfo.io/json")
 
@@ -226,6 +229,20 @@ class MihomoRunner:
         return None, str(msg)[:200]
 
 
+async def tcp_reachable(host: str, port: int, timeout: float = 4.0) -> bool:
+    """Открыт ли порт напрямую. Ровно то, что клиенты вроде Happ зовут пингом."""
+    try:
+        _, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout)
+    except (OSError, asyncio.TimeoutError):
+        return False
+    writer.close()
+    try:
+        await writer.wait_closed()
+    except OSError:
+        pass
+    return True
+
+
 def _geo_stale(node: Node) -> bool:
     if node.exit_checked_at is None:
         return True
@@ -267,6 +284,16 @@ async def run_check(session: AsyncSession, node_ids: list[int] | None = None,
     sem = asyncio.Semaphore(settings.check_concurrency)
     results: dict[str, list[tuple[CheckTarget, int | None, str | None]]] = {k: [] for k in by_key}
     geo: dict[str, tuple[str | None, str | None]] = {}
+    tcp: dict[str, bool] = {}
+
+    async def knock(key: str, node: Node) -> None:
+        async with sem:
+            tcp[key] = await tcp_reachable(node.server, node.port)
+
+    await asyncio.gather(
+        *(knock(k, n) for k, n in by_key.items() if n.proto not in UDP_PROTOS),
+        return_exceptions=True,
+    )
 
     try:
         async with MihomoRunner(proxies, settings.work_dir, settings.checker_api_port) as runner:
@@ -276,12 +303,18 @@ async def run_check(session: AsyncSession, node_ids: list[int] | None = None,
             async with httpx.AsyncClient() as client:
 
                 async def probe(key: str, target: CheckTarget) -> None:
+                    timeout = target.timeout_ms or settings.check_timeout_ms
                     async with sem:
                         latency, err = await runner.delay(
-                            client, key, target.url,
-                            target.timeout_ms or settings.check_timeout_ms,
-                            target.expected_status,
+                            client, key, target.url, timeout, target.expected_status,
                         )
+                        # Вторая попытка с запасом по времени: дальние ноды через
+                        # промежуточный узел иногда не влезают в таймаут, и
+                        # без повтора их ложно хоронит сетевой шум
+                        if latency is None and tcp.get(key) is not False:
+                            latency, err = await runner.delay(
+                                client, key, target.url, timeout * 2, target.expected_status,
+                            )
                         results[key].append((target, latency, err))
 
                 await asyncio.gather(
@@ -349,6 +382,7 @@ async def run_check(session: AsyncSession, node_ids: list[int] | None = None,
             if node.last_check_at is None or node.fail_streak >= settings.dead_after_fails:
                 node.alive = False
         node.last_check_at = now
+        node.tcp_ok = tcp.get(key)
         if key in geo:
             ip, country = geo[key]
             # Не узнали - не отмечаем, спросим на следующей проверке
