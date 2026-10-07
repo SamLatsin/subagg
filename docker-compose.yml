@@ -6,6 +6,8 @@ services:
         MIHOMO_VERSION: ${MIHOMO_VERSION:-v1.19.31}
         TARGETARCH: ${TARGETARCH:-amd64}
     image: subagg:latest
+    labels:
+      - "diun.enable=false"
     container_name: subagg
     restart: unless-stopped
     env_file: .env
