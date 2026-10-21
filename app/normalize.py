@@ -247,9 +247,11 @@ def normalize_node(node: dict, source: str, slot: str, force_tags: list[str] | N
     country = detect_country(original)
     tags = detect_tags(original, country, source, force_tags)
     if source == "own" and original.strip():
-        # Свои серверы ты называешь сам: имя оставляем как есть, только с
-        # тегами впереди. Уникальность имен в выдаче обеспечивает render
-        display = "".join(f"[{t}]" for t in tags) + " " + original.strip()
+        # Свои серверы ты называешь сам: имя оставляем как есть, впереди
+        # теги и флаг, если страна угадалась. Уникальность имен в выдаче
+        # обеспечивает render
+        parts = ["".join(f"[{t}]" for t in tags), flag_emoji(country or ""), original.strip()]
+        display = " ".join(p for p in parts if p)
     else:
         display = build_display_name(original, country, tags, slot)
     return {

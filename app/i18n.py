@@ -182,6 +182,8 @@ EN: dict[str, str] = {
         "that cannot be checked from here",
     "Всегда отдавать": "Always serve",
     "Пинг": "Ping",
+    "Скопировать полный адрес подписки с ключом. На странице он скрыт":
+        "Copy the full subscription URL with its key. It is hidden on the page",
     "Публикация на внешний сервер": "Publish to an external server",
     "Для клиентов, которые не достают до дома, например роутера на симке с белым списком. Сервис сам кладет файл подписки по SSH на сервер, который им доступен, после каждого обновления подписок. Клиент берет его оттуда как обычную статику.":
         "For clients that cannot reach home, e.g. a router on a whitelisted SIM. After every subscription refresh the service uploads the subscription file over SSH to a server they can reach. The client fetches it from there as a static file.",
