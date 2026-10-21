@@ -478,6 +478,22 @@ def parse_uri(uri: str) -> dict | None:
 # --------------------------------------------------------------------------- #
 
 
+def parse_clash_proxies(text: str) -> list[dict]:
+    """Прокси из clash YAML: целый конфиг с proxies:, список «- name: ...»
+    или один прокси без дефиса. Пустой список, если это не YAML прокси."""
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return []
+    if isinstance(data, dict) and isinstance(data.get("proxies"), list):
+        data = data["proxies"]
+    elif isinstance(data, dict):
+        data = [data]
+    if not isinstance(data, list):
+        return []
+    return [p for p in data if isinstance(p, dict) and p.get("type") and p.get("server") and p.get("port")]
+
+
 def _looks_like_uri_list(text: str) -> bool:
     return bool(re.search(r"^(vless|vmess|trojan|ss|hysteria2|hy2|tuic)://", text.strip(), re.MULTILINE))
 

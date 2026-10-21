@@ -8,7 +8,6 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
-import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
@@ -29,7 +28,7 @@ from .jobs import CHECK, FETCH, JOBS, MIHOMO_LOCK
 from .models import CheckResult, CheckTarget, Node, Subscription, Token, utcnow
 from .normalize import flag_emoji
 from .publish import ensure_key, parse_target, public_key, publish_token
-from .parsers import parse_subscription_body, parse_uri
+from .parsers import parse_clash_proxies, parse_subscription_body, parse_uri
 from .render import explain_nodes, render_base64, render_clash, render_uri_list, select_nodes
 from .xray import parse_xray_json
 
@@ -375,10 +374,9 @@ async def add_own(
             proxies = parse_xray_json(text)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=tr("не разобран JSON: {error}").format(error=exc)) from exc
-    elif "proxies:" in text[:2048]:
-        data = yaml.safe_load(text)
-        if isinstance(data, dict):
-            proxies = [p for p in data.get("proxies", []) if isinstance(p, dict)]
+    elif clash := parse_clash_proxies(text):
+        # clash YAML: целиком с proxies:, списком «- name: ...» или один прокси
+        proxies = clash
     else:
         for line in text.splitlines():
             node = parse_uri(line)
