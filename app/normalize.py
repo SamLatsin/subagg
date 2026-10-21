@@ -149,6 +149,11 @@ NAME_HINTS: list[tuple[str, str]] = [
 
 _HINT_RES = [(re.compile(p, re.IGNORECASE), c) for p, c in NAME_HINTS]
 
+# Имена вида ch-1, au2, AU_3, «ch 4» или просто «ch»: код страны в начале и
+# сразу номер. Только так - иначе «my server» стал бы Малайзией, а «in ...» Индией
+_CODE_PREFIX_RE = re.compile(r"^\s*([a-z]{2})(?:[-_ .]*\d+\b|\s*$)", re.IGNORECASE)
+_CODE_ALIASES = {"UK": "GB"}
+
 # Флаг - две буквы Regional Indicator, U+1F1E6..U+1F1FF
 _FLAG_RE = re.compile("[\U0001f1e6-\U0001f1ff]{2}")
 
@@ -163,6 +168,12 @@ def country_from_flag(name: str) -> str | None:
 def country_from_name(name: str) -> str | None:
     for rx, code in _HINT_RES:
         if rx.search(name):
+            return code
+    m = _CODE_PREFIX_RE.match(name)
+    if m:
+        code = m.group(1).upper()
+        code = _CODE_ALIASES.get(code, code)
+        if code in COUNTRY_NAMES:
             return code
     return None
 
@@ -250,7 +261,8 @@ def normalize_node(node: dict, source: str, slot: str, force_tags: list[str] | N
         # Свои серверы ты называешь сам: имя оставляем как есть, впереди
         # теги и флаг, если страна угадалась. Уникальность имен в выдаче
         # обеспечивает render
-        parts = ["".join(f"[{t}]" for t in tags), flag_emoji(country or ""), original.strip()]
+        flag = "" if _FLAG_RE.search(original) else flag_emoji(country or "")
+        parts = ["".join(f"[{t}]" for t in tags), flag, original.strip()]
         display = " ".join(p for p in parts if p)
     else:
         display = build_display_name(original, country, tags, slot)
