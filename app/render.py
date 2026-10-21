@@ -72,28 +72,41 @@ def _named(nodes: list[Node]) -> list[tuple[Node, str]]:
     return out
 
 
+def _clash_proxy(n: Node, name: str) -> dict:
+    cfg = public_config(n.config or {})
+    cfg["name"] = name
+    return cfg
+
+
+def _uri(n: Node, name: str) -> str | None:
+    cfg = n.config or {}
+    # Ссылку провайдера отдаем как есть, меняем только имя. Собираем
+    # сами, только если нода пришла не ссылкой (clash YAML, xray JSON)
+    uri = rename_uri(cfg["_uri"], name) if cfg.get("_uri") else None
+    return uri or node_to_uri({**public_config(cfg), "name": name})
+
+
+def _dump(data) -> str:
+    return yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=4096)
+
+
 def render_clash(nodes: list[Node]) -> str:
     """Формат proxy-provider: только список proxies."""
-    proxies = []
-    for n, name in _named(nodes):
-        cfg = public_config(n.config or {})
-        cfg["name"] = name
-        proxies.append(cfg)
-    return yaml.safe_dump({"proxies": proxies}, allow_unicode=True, sort_keys=False, width=4096)
+    return _dump({"proxies": [_clash_proxy(n, name) for n, name in _named(nodes)]})
 
 
 def render_uri_list(nodes: list[Node]) -> str:
-    lines = []
-    for n, name in _named(nodes):
-        cfg = n.config or {}
-        # Ссылку провайдера отдаем как есть, меняем только имя. Собираем
-        # сами, только если нода пришла не ссылкой (clash YAML, xray JSON)
-        uri = rename_uri(cfg["_uri"], name) if cfg.get("_uri") else None
-        if not uri:
-            uri = node_to_uri({**public_config(cfg), "name": name})
-        if uri:
-            lines.append(uri)
-    return "\n".join(lines)
+    return "\n".join(uri for n, name in _named(nodes) if (uri := _uri(n, name)))
+
+
+def share_uri(n: Node) -> str | None:
+    """Ссылка на одну ноду, чтобы поделиться или вставить в клиент."""
+    return _uri(n, n.display_name)
+
+
+def share_yaml(n: Node) -> str:
+    """Одна нода элементом списка proxies: «- name: ...»."""
+    return _dump([_clash_proxy(n, n.display_name)])
 
 
 def render_base64(nodes: list[Node]) -> str:

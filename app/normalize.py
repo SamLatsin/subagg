@@ -154,6 +154,8 @@ _HINT_RES = [(re.compile(p, re.IGNORECASE), c) for p, c in NAME_HINTS]
 _CODE_PREFIX_RE = re.compile(r"^\s*([a-z]{2})(?:[-_ .]*\d+\b|\s*$)", re.IGNORECASE)
 _CODE_ALIASES = {"UK": "GB"}
 
+_LEADING_TAGS_RE = re.compile(r"^\s*(?:\[[A-Z]{2,5}\]\s*)+")
+
 # Флаг - две буквы Regional Indicator, U+1F1E6..U+1F1FF
 _FLAG_RE = re.compile("[\U0001f1e6-\U0001f1ff]{2}")
 
@@ -261,8 +263,11 @@ def normalize_node(node: dict, source: str, slot: str, force_tags: list[str] | N
         # Свои серверы ты называешь сам: имя оставляем как есть, впереди
         # теги и флаг, если страна угадалась. Уникальность имен в выдаче
         # обеспечивает render
-        flag = "" if _FLAG_RE.search(original) else flag_emoji(country or "")
-        parts = ["".join(f"[{t}]" for t in tags), flag, original.strip()]
+        # Теги в начале имени - от нас же (нода скопирована из выдачи),
+        # их ставим заново, иначе вышло бы [MY] [MY] de-1
+        label = _LEADING_TAGS_RE.sub("", original).strip() or original.strip()
+        flag = "" if _FLAG_RE.search(label) else flag_emoji(country or "")
+        parts = ["".join(f"[{t}]" for t in tags), flag, label]
         display = " ".join(p for p in parts if p)
     else:
         display = build_display_name(original, country, tags, slot)

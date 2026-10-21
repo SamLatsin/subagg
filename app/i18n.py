@@ -182,6 +182,11 @@ EN: dict[str, str] = {
         "that cannot be checked from here",
     "Всегда отдавать": "Always serve",
     "Пинг": "Ping",
+    "Ссылка": "Link",
+    "Скопировать ссылку на ноду (vless://, hysteria2:// ...): открывается в Happ, v2rayN, Hiddify и т.п.":
+        "Copy the node link (vless://, hysteria2:// ...): opens in Happ, v2rayN, Hiddify etc.",
+    "Скопировать ноду в формате clash: вставляется в proxies: конфига mihomo или в «Свои ноды»":
+        "Copy the node in clash format: paste it into proxies: of a mihomo config or into “Own nodes”",
     "Скопировать полный адрес подписки с ключом. На странице он скрыт":
         "Copy the full subscription URL with its key. It is hidden on the page",
     "Публикация на внешний сервер": "Publish to an external server",

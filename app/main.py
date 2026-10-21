@@ -29,7 +29,15 @@ from .models import CheckResult, CheckTarget, Node, Subscription, Token, utcnow
 from .normalize import flag_emoji
 from .publish import ensure_key, parse_target, public_key, publish_token
 from .parsers import parse_clash_proxies, parse_subscription_body, parse_uri
-from .render import explain_nodes, render_base64, render_clash, render_uri_list, select_nodes
+from .render import (
+    explain_nodes,
+    render_base64,
+    render_clash,
+    render_uri_list,
+    select_nodes,
+    share_uri,
+    share_yaml,
+)
 from .xray import parse_xray_json
 
 logging.basicConfig(
@@ -46,6 +54,8 @@ TEMPLATES.env.globals["_"] = tr
 # В админке у подписок показываем только домен: в пути и query лежат ключи
 TEMPLATES.env.filters["host"] = lambda url: urlparse(url).hostname or "?"
 TEMPLATES.env.filters["flag"] = flag_emoji
+TEMPLATES.env.filters["share_uri"] = share_uri
+TEMPLATES.env.filters["share_yaml"] = share_yaml
 
 DEFAULT_TARGETS = [
     # required: если эта цель не прошла, нода считается мертвой

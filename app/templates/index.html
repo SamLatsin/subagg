@@ -289,6 +289,15 @@
         <td>
           {{ n.display_name }}
           <div class="muted" style="font-size:11px">{{ n.original_name }}</div>
+          <div style="margin-top:3px">
+            {% set uri = n|share_uri %}
+            {% if uri %}
+            <button type="button" class="sm" onclick='copyText({{ uri|tojson }}, this)'
+                    title="{{ _('Скопировать ссылку на ноду (vless://, hysteria2:// ...): открывается в Happ, v2rayN, Hiddify и т.п.') }}">⧉ {{ _('Ссылка') }}</button>
+            {% endif %}
+            <button type="button" class="sm" onclick='copyText({{ (n|share_yaml)|tojson }}, this)'
+                    title="{{ _('Скопировать ноду в формате clash: вставляется в proxies: конфига mihomo или в «Свои ноды»') }}">⧉ YAML</button>
+          </div>
         </td>
         <td>{% include "_node_source.html" %}</td>
         <td>{% for t in n.tags %}<span class="pill">{{ t }}</span>{% endfor %}</td>
