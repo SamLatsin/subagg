@@ -109,5 +109,13 @@ def share_yaml(n: Node) -> str:
     return _dump([_clash_proxy(n, n.display_name)])
 
 
+def edit_yaml(n: Node) -> str:
+    """Конфиг своей ноды для формы правки: один прокси без имени,
+    имя правится отдельным полем."""
+    cfg = public_config(n.config or {})
+    cfg.pop("name", None)
+    return _dump(cfg)
+
+
 def render_base64(nodes: list[Node]) -> str:
     return base64.b64encode(render_uri_list(nodes).encode()).decode()

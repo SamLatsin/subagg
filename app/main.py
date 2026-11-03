@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .db import SessionLocal, get_session, init_db
-from .fetcher import add_own_nodes, expire_date, sync_subscription
+from .fetcher import add_own_nodes, expire_date, fill_own_node, manual_tags, sync_subscription
 from .i18n import DEFAULT_LANG, LANGS, current_lang
 from .i18n import gettext as tr
 from .checker import run_check
@@ -28,13 +28,21 @@ from .jobs import CHECK, FETCH, JOBS, MIHOMO_LOCK
 from .models import CheckResult, CheckTarget, Node, Subscription, Token, utcnow
 from .normalize import flag_emoji
 from .publish import ensure_key, parse_target, public_key, publish_token
-from .parsers import parse_clash_proxies, parse_subscription_body, parse_uri
+from .parsers import (
+    fingerprint,
+    is_junk,
+    parse_clash_proxies,
+    parse_subscription_body,
+    parse_uri,
+    public_config,
+)
 from .render import (
     explain_nodes,
     render_base64,
     render_clash,
     render_uri_list,
     select_nodes,
+    edit_yaml,
     share_uri,
     share_yaml,
 )
@@ -56,6 +64,8 @@ TEMPLATES.env.filters["host"] = lambda url: urlparse(url).hostname or "?"
 TEMPLATES.env.filters["flag"] = flag_emoji
 TEMPLATES.env.filters["share_uri"] = share_uri
 TEMPLATES.env.filters["share_yaml"] = share_yaml
+TEMPLATES.env.filters["edit_yaml"] = edit_yaml
+TEMPLATES.env.filters["manual_tags"] = manual_tags
 
 DEFAULT_TARGETS = [
     # required: если эта цель не прошла, нода считается мертвой
@@ -226,6 +236,7 @@ async def index(
         {
             "subs": subs,
             "nodes": nodes,
+            "own_nodes": [n for n in nodes if n.source == "own"],
             "targets": targets,
             "tokens": tokens,
             "stats": stats,
@@ -367,16 +378,9 @@ async def delete_sub(
     return _back()
 
 
-@app.post("/own")
-async def add_own(
-    payload: str = Form(...),
-    force_tags: str = Form(""),
-    _: str = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-):
-    """Свои ноды: ссылки, clash YAML или xray outbound JSON."""
-    text = payload.strip()
-    tags = [t.strip().upper() for t in force_tags.split(",") if t.strip()]
+def _parse_own_payload(text: str) -> list[dict]:
+    """Свои ноды из вставленного текста: ссылки, clash YAML или xray outbound JSON."""
+    text = text.strip()
     proxies: list[dict] = []
 
     if text.startswith("{") or text.startswith("["):
@@ -397,10 +401,68 @@ async def add_own(
 
     if not proxies:
         raise HTTPException(status_code=400, detail=tr("ничего не разобрано из вставленного текста"))
+    return proxies
 
-    added = await add_own_nodes(session, proxies, tags)
+
+def _split_tags(value: str) -> list[str]:
+    return [t.strip().upper() for t in value.split(",") if t.strip()]
+
+
+@app.post("/own")
+async def add_own(
+    payload: str = Form(...),
+    force_tags: str = Form(""),
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Свои ноды: ссылки, clash YAML или xray outbound JSON."""
+    proxies = _parse_own_payload(payload)
+    added = await add_own_nodes(session, proxies, _split_tags(force_tags))
     log.info("добавлено своих нод: %d (всего разобрано %d)", added, len(proxies))
-    return _back()
+    return _back("/#own")
+
+
+@app.post("/own/{node_id}")
+async def update_own(
+    node_id: int,
+    name: str = Form(""),
+    payload: str = Form(...),
+    force_tags: str = Form(""),
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Правка своей ноды. Конфиг можно заменить целиком новой ссылкой или JSON."""
+    node = await session.get(Node, node_id)
+    if not node or node.source != "own":
+        raise HTTPException(status_code=404, detail=tr("нет такой ноды"))
+    proxies = _parse_own_payload(payload)
+    if len(proxies) != 1:
+        raise HTTPException(status_code=400, detail=tr("при правке нужна ровно одна нода, разобрано {n}").format(n=len(proxies)))
+    raw = proxies[0]
+    if name.strip():
+        raw["name"] = name.strip()
+    if is_junk(raw):
+        raise HTTPException(status_code=400, detail=tr("нода похожа на заглушку: проверь имя и адрес сервера"))
+
+    # Конфиг не меняли: сохраняем исходную ссылку (_uri), чтобы «Ссылка»
+    # отдавала ее как есть, а не собранную заново
+    old = node.config or {}
+    if _without_name(public_config(raw)) == _without_name(public_config(old)):
+        raw = {**{k: v for k, v in old.items() if str(k).startswith("_")}, **raw}
+
+    other = (await session.execute(
+        select(Node).where(Node.fingerprint == fingerprint(raw), Node.id != node_id)
+    )).scalar_one_or_none()
+    if other is not None:
+        raise HTTPException(status_code=400, detail=tr("такая нода уже есть: «{name}»").format(name=other.display_name))
+
+    fill_own_node(node, raw, _split_tags(force_tags))
+    await session.commit()
+    return _back(f"/#own-{node_id}")
+
+
+def _without_name(cfg: dict) -> dict:
+    return {k: v for k, v in cfg.items() if k != "name"}
 
 
 @app.post("/nodes/{node_id}/check")

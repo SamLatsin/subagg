@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Node, Subscription, utcnow
-from .normalize import normalize_node
+from .normalize import detect_tags, normalize_node
 from .parsers import fingerprint, is_junk, parse_subscription_body
 
 log = logging.getLogger(__name__)
@@ -175,26 +175,40 @@ async def add_own_nodes(session: AsyncSession, proxies: list[dict], force_tags: 
             continue
         fp = fingerprint(raw)
         node = (await session.execute(select(Node).where(Node.fingerprint == fp))).scalar_one_or_none()
-        meta = normalize_node(raw, "own", _slot(None, fp), force_tags or [])
-        cfg = dict(raw)
-        cfg["name"] = meta["display_name"]
         if node is None:
             node = Node(subscription_id=None, source="own", fingerprint=fp)
             session.add(node)
             added += 1
-        node.source = "own"
-        node.subscription_id = None
-        node.original_name = str(raw.get("name", ""))
-        node.display_name = meta["display_name"]
-        node.country = meta["country"]
-        node.tags = meta["tags"]
-        node.proto = str(raw.get("type", ""))
-        node.server = str(raw.get("server", ""))
-        node.port = int(raw.get("port", 0) or 0)
-        node.config = cfg
-        node.last_seen_at = utcnow()
+        fill_own_node(node, raw, force_tags)
     await session.commit()
     return added
+
+
+def fill_own_node(node: Node, raw: dict, force_tags: list[str] | None = None) -> None:
+    """Записать в ноду конфиг своего сервера: имя, теги, адрес."""
+    fp = fingerprint(raw)
+    meta = normalize_node(raw, "own", _slot(None, fp), force_tags or [])
+    # Имя первым ключом: при правке оно приходит отдельным полем и иначе
+    # оказалось бы в конце YAML
+    cfg = {"name": meta["display_name"], **{k: v for k, v in raw.items() if k != "name"}}
+    node.fingerprint = fp
+    node.source = "own"
+    node.subscription_id = None
+    node.original_name = str(raw.get("name", ""))
+    node.display_name = meta["display_name"]
+    node.country = meta["country"]
+    node.tags = meta["tags"]
+    node.proto = str(raw.get("type", ""))
+    node.server = str(raw.get("server", ""))
+    node.port = int(raw.get("port", 0) or 0)
+    node.config = cfg
+    node.last_seen_at = utcnow()
+
+
+def manual_tags(node: Node) -> list[str]:
+    """Теги своей ноды, поставленные руками: без MY и тех, что берутся из имени."""
+    auto = detect_tags(node.original_name, node.country, "own")
+    return [t for t in node.tags or [] if t not in auto]
 
 
 def expire_date(ts: int | None) -> dt.datetime | None:

@@ -109,9 +109,74 @@
   </div>
 
   <!-- ------------------------------------------------------------------ -->
-  <div class="card">
-    <h2>{{ _('Свои ноды') }}</h2>
-    <details>
+  <div class="card" id="own">
+    <h2>{{ _('Свои ноды') }} ({{ own_nodes|length }})</h2>
+    <table>
+      <tr><th>{{ _('Имя') }}</th><th>{{ _('Теги') }}</th><th class="hide-sm">{{ _('Сервер') }}</th><th>{{ _('Задержка') }}</th>
+          <th>{{ _('Статус') }}</th><th></th></tr>
+      {% for n in own_nodes %}
+      <tr class="{{ '' if n.enabled else 'off' }}" id="own-{{ n.id }}">
+        <td>
+          {{ n.display_name }}
+          <div style="margin-top:3px">
+            {% set uri = n|share_uri %}
+            {% if uri %}
+            <button type="button" class="sm" onclick='copyText({{ uri|tojson }}, this)'
+                    title="{{ _('Скопировать ссылку на ноду (vless://, hysteria2:// ...): открывается в Happ, v2rayN, Hiddify и т.п.') }}">⧉ {{ _('Ссылка') }}</button>
+            {% endif %}
+            <button type="button" class="sm" onclick='copyText({{ (n|share_yaml)|tojson }}, this)'
+                    title="{{ _('Скопировать ноду в формате clash: вставляется в proxies: конфига mihomo или в «Свои ноды»') }}">⧉ YAML</button>
+          </div>
+        </td>
+        <td>{% for t in n.tags %}<span class="pill">{{ t }}</span>{% endfor %}</td>
+        <td class="hide-sm mono muted">{{ n.proto }} {{ n.server }}:{{ n.port }}</td>
+        <td class="node-latency">{{ _('{n} мс').format(n=n.last_latency_ms) if n.last_latency_ms else '—' }}</td>
+        <td class="node-status">
+          {% include "_node_status.html" %}
+        </td>
+        <td class="row">
+          <button type="button" class="sm" onclick="toggleEdit('own-edit-{{ n.id }}')"
+                  title="{{ _('Поменять имя, теги или конфиг ноды: адрес, ключи, транспорт') }}">✎ {{ _('Изменить') }}</button>
+          {% if n.enabled %}
+          <button type="button" class="sm" onclick="pingNode({{ n.id }}, this)"
+                  title="{{ _('Проверить только эту ноду прямо сейчас: задержка и какие цели не прошли. Несколько секунд') }}">⚡ {{ _('Пинг') }}</button>
+          {% endif %}
+          <form class="inline" method="post" action="/nodes/{{ n.id }}/toggle">
+            {% if n.enabled %}
+            <button class="sm" title="{{ _('Убрать ноду из выдачи всех токенов и не проверять ее') }}">⏸ {{ _('Выключить') }}</button>
+            {% else %}
+            <button class="sm" title="{{ _('Вернуть ноду в выдачу') }}">▶ {{ _('Включить') }}</button>
+            {% endif %}
+          </form>
+          <form class="inline" method="post" action="/nodes/{{ n.id }}/delete"
+                onsubmit='return confirm({{ _("Удалить свою ноду «{name}»?").format(name=n.display_name)|tojson }})'>
+            <button class="sm danger" title="{{ _('Удалить свою ноду насовсем') }}">✕ {{ _('Удалить') }}</button></form>
+        </td>
+      </tr>
+      <tr id="own-edit-{{ n.id }}" hidden>
+        <td colspan="6">
+          <form method="post" action="/own/{{ n.id }}">
+            <div class="grid">
+              <label>{{ _('Имя') }}<input name="name" value="{{ n.original_name }}"
+                     title="{{ _('Как нода называется в выдаче. Теги и флаг страны добавятся спереди сами') }}"></label>
+              <label>{{ _('Теги') }}<input name="force_tags" value="{{ (n|manual_tags)|join(', ') }}" placeholder="WL"
+                     title="{{ _('Через запятую. MY и теги из имени ставятся сами') }}"></label>
+            </div>
+            <label style="display:block;margin-top:8px">{{ _('Конфиг: clash YAML, ссылка или xray outbound JSON') }}
+              <textarea name="payload" required style="min-height:220px">{{ n|edit_yaml }}</textarea></label>
+            <p class="hint">{{ _('Можно поправить YAML или вставить вместо него новую ссылку. Имя из поля выше важнее имени в конфиге.') }}</p>
+            <div class="row" style="margin-top:8px">
+              <button class="primary">{{ _('Сохранить') }}</button>
+              <button type="button" onclick="toggleEdit('own-edit-{{ n.id }}')">{{ _('Отмена') }}</button>
+            </div>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">{{ _('Пока пусто') }}</td></tr>
+      {% endfor %}
+    </table>
+    <details style="margin-top:12px" {{ 'open' if not own_nodes }}>
       <summary>{{ _('Добавить: ссылки, clash YAML или xray outbound JSON') }}</summary>
       <form method="post" action="/own" style="margin-top:10px">
         <textarea name="payload" required placeholder="vless://uuid@host:443?security=reality&...#My server
@@ -326,6 +391,8 @@
             {% endif %}
           </form>
           {% if n.source == 'own' %}
+          <a class="sm" href="#own-{{ n.id }}" onclick="document.getElementById('own-edit-{{ n.id }}').hidden = false"
+             title="{{ _('Править в разделе «Свои ноды»') }}">✎ {{ _('Изменить') }}</a>
           <form class="inline" method="post" action="/nodes/{{ n.id }}/delete"
                 onsubmit='return confirm({{ _("Удалить свою ноду «{name}»?").format(name=n.display_name)|tojson }})'>
             <button class="sm danger" title="{{ _('Удалить свою ноду насовсем') }}">✕ {{ _('Удалить') }}</button></form>
@@ -343,7 +410,7 @@
 <script>
 // Пинг одной ноды: ждем ответа и подменяем задержку и статус в строке
 async function pingNode(id, btn) {
-  const row = document.getElementById("node-" + id);
+  const row = btn.closest("tr");
   const label = btn.textContent;
   btn.disabled = true;
   btn.textContent = {{ _('Проверяю…')|tojson }};
@@ -366,6 +433,11 @@ async function pingNode(id, btn) {
 function toggleEdit(id) {
   const row = document.getElementById(id);
   row.hidden = !row.hidden;
+}
+
+// После сохранения своей ноды возвращаемся к ней: #own-5
+if (location.hash.startsWith("#own-")) {
+  document.querySelector(location.hash)?.scrollIntoView({block: "center"});
 }
 
 // Пока идет фоновая операция, раз в 3 секунды спрашиваем статус

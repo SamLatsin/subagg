@@ -83,6 +83,15 @@ EN: dict[str, str] = {
     # свои ноды
     "Свои ноды": "Own nodes",
     "Добавить: ссылки, clash YAML или xray outbound JSON": "Add: links, clash YAML or xray outbound JSON",
+    "Поменять имя, теги или конфиг ноды: адрес, ключи, транспорт":
+        "Change the node name, tags or config: address, keys, transport",
+    "Как нода называется в выдаче. Теги и флаг страны добавятся спереди сами":
+        "How the node is named in the output. Tags and the country flag are prepended automatically",
+    "Через запятую. MY и теги из имени ставятся сами": "Comma separated. MY and tags from the name are added automatically",
+    "Конфиг: clash YAML, ссылка или xray outbound JSON": "Config: clash YAML, a link or xray outbound JSON",
+    "Можно поправить YAML или вставить вместо него новую ссылку. Имя из поля выше важнее имени в конфиге.":
+        "Edit the YAML or paste a new link instead. The name field above wins over the name in the config.",
+    "Править в разделе «Свои ноды»": "Edit in the “Own nodes” section",
     "Теги": "Tags",
     "Через запятую. Тег MY ставится своим нодам всегда": "Comma separated. Own nodes always get the MY tag",
 
@@ -304,6 +313,9 @@ EN: dict[str, str] = {
     "ожидается JSON-объект": "a JSON object is expected",
     "не разобран JSON: {error}": "could not parse JSON: {error}",
     "ничего не разобрано из вставленного текста": "nothing could be parsed from the pasted text",
+    "при правке нужна ровно одна нода, разобрано {n}": "editing needs exactly one node, parsed {n}",
+    "нода похожа на заглушку: проверь имя и адрес сервера": "the node looks like a placeholder: check the name and server address",
+    "такая нода уже есть: «{name}»": "this node already exists: “{name}”",
     "нет такой подписки": "no such subscription",
     "нет такой ноды": "no such node",
     "нет такой цели": "no such target",
