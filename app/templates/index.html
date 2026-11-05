@@ -43,7 +43,7 @@
         <th>{{ _('Обновлена') }}</th><th>{{ _('Статус') }}</th><th></th>
       </tr>
       {% for s in subs %}
-      <tr class="{{ '' if s.enabled else 'off' }}">
+      <tr id="sub-{{ s.id }}" class="{{ '' if s.enabled else 'off' }}">
         <td>
           <b>{{ s.name }}</b>
           {% if not s.enabled %}<span class="pill">{{ _('выкл') }}</span>{% endif %}
@@ -69,6 +69,8 @@
           {% else %}<span class="ok">{{ _('ок') }}</span>{% endif %}
         </td>
         <td class="row">
+          <button type="button" class="sm" onclick="toggleEdit('sub-edit-{{ s.id }}')"
+                  title="{{ _('Поменять имя, адрес, User-Agent, заголовки (HWID и пр.) или теги подписки') }}">✎ {{ _('Изменить') }}</button>
           <form class="inline" method="post" action="/subs/{{ s.id }}/refresh">
             <button class="sm" title="{{ _('Скачать эту подписку заново прямо сейчас') }}">↻ {{ _('Обновить') }}</button></form>
           <form class="inline" method="post" action="/subs/{{ s.id }}/toggle">
@@ -81,6 +83,29 @@
           <form class="inline" method="post" action="/subs/{{ s.id }}/delete"
                 onsubmit='return confirm({{ _("Удалить подписку «{name}» и её ноды?").format(name=s.name)|tojson }})'>
             <button class="sm danger" title="{{ _('Удалить подписку вместе со всеми её нодами') }}">✕ {{ _('Удалить') }}</button></form>
+        </td>
+      </tr>
+      <tr id="sub-edit-{{ s.id }}" hidden>
+        <td colspan="6">
+          <form method="post" action="/subs/{{ s.id }}">
+            <div class="grid">
+              <label>{{ _('Имя') }}<input name="name" required value="{{ s.name }}"></label>
+              <label>User-Agent<input name="user_agent" value="{{ s.user_agent }}"
+                     title="{{ _('Каким клиентом представляться провайдеру') }}"></label>
+              <label>{{ _('Принудительные теги') }}<input name="force_tags" value="{{ s.force_tags|join(', ') }}" placeholder="WL"
+                     title="{{ _('Через запятую. Добавятся ко всем нодам подписки') }}"></label>
+            </div>
+            <label style="display:block;margin-top:8px">URL
+              <input name="url" required value="{{ s.url }}"></label>
+            <label style="display:block;margin-top:8px">{{ _('Заголовки, JSON') }}
+              <textarea name="headers_json" style="min-height:140px">{{ s.headers|tojson(indent=2) if s.headers }}</textarea>
+            </label>
+            <p class="hint">{{ _('После сохранения включенная подписка сразу скачается заново с новыми настройками.') }}</p>
+            <div class="row" style="margin-top:8px">
+              <button class="primary">{{ _('Сохранить') }}</button>
+              <button type="button" onclick="toggleEdit('sub-edit-{{ s.id }}')">{{ _('Отмена') }}</button>
+            </div>
+          </form>
         </td>
       </tr>
       {% else %}
@@ -436,7 +461,7 @@ function toggleEdit(id) {
 }
 
 // После сохранения своей ноды возвращаемся к ней: #own-5
-if (location.hash.startsWith("#own-")) {
+if (location.hash.startsWith("#own-") || location.hash.startsWith("#sub-")) {
   document.querySelector(location.hash)?.scrollIntoView({block: "center"});
 }
 

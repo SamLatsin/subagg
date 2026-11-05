@@ -308,6 +308,24 @@ def _check_regex(value: str, field: str) -> str | None:
     return value
 
 
+def _parse_headers(headers_json: str) -> dict:
+    try:
+        headers = json.loads(headers_json) if headers_json.strip() else {}
+        if not isinstance(headers, dict):
+            raise ValueError(tr("ожидается JSON-объект"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=tr("заголовки: {error}").format(error=exc)) from exc
+    return {str(k): str(v) for k, v in headers.items()}
+
+
+async def _commit_sub(session: AsyncSession) -> None:
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(status_code=400, detail=tr("подписка с таким именем уже есть")) from exc
+
+
 @app.post("/subs")
 async def add_sub(
     name: str = Form(...),
@@ -318,24 +336,44 @@ async def add_sub(
     _: str = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    try:
-        headers = json.loads(headers_json) if headers_json.strip() else {}
-        if not isinstance(headers, dict):
-            raise ValueError(tr("ожидается JSON-объект"))
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=tr("заголовки: {error}").format(error=exc)) from exc
-
     sub = Subscription(
         name=name.strip(),
         url=url.strip(),
         user_agent=user_agent.strip() or "clash.meta",
-        headers=headers,
-        force_tags=[t.strip().upper() for t in force_tags.split(",") if t.strip()],
+        headers=_parse_headers(headers_json),
+        force_tags=_split_tags(force_tags),
     )
     session.add(sub)
-    await session.commit()
+    await _commit_sub(session)
     await sync_subscription(session, sub)
     return _back()
+
+
+@app.post("/subs/{sub_id}")
+async def update_sub(
+    sub_id: int,
+    name: str = Form(...),
+    url: str = Form(...),
+    user_agent: str = Form("clash.meta"),
+    headers_json: str = Form(""),
+    force_tags: str = Form(""),
+    _: str = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Правка подписки: адрес, UA, заголовки (HWID и пр.), принудительные теги."""
+    sub = await session.get(Subscription, sub_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail=tr("нет такой подписки"))
+    sub.name = name.strip()
+    sub.url = url.strip()
+    sub.user_agent = user_agent.strip() or "clash.meta"
+    sub.headers = _parse_headers(headers_json)
+    sub.force_tags = _split_tags(force_tags)
+    await _commit_sub(session)
+    # Новые адрес/заголовки/теги применяются к нодам только при скачивании
+    if sub.enabled:
+        await sync_subscription(session, sub)
+    return _back(f"/#sub-{sub_id}")
 
 
 @app.post("/subs/{sub_id}/refresh")

@@ -101,6 +101,11 @@ EN: dict[str, str] = {
     "Обязательная": "Required",
     "да": "yes",
     "нет": "no",
+    "Поменять имя, адрес, User-Agent, заголовки (HWID и пр.) или теги подписки":
+        "Change the subscription name, URL, User-Agent, headers (HWID etc.) or tags",
+    "После сохранения включенная подписка сразу скачается заново с новыми настройками.":
+        "After saving, an enabled subscription is re-downloaded right away with the new settings.",
+    "подписка с таким именем уже есть": "a subscription with this name already exists",
     "Поменять имя, адрес, код ответа или таймаут цели": "Change the target name, URL, expected code or timeout",
     "Изменить": "Edit",
     "Не использовать эту цель при проверке нод": "Do not use this target when checking nodes",
